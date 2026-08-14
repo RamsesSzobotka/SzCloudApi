@@ -6,7 +6,7 @@ class FolderDto{
     private ?string $parent_id;
     private string $name;
 
-    public function __construct(string $user_id,?string $parent_id = null,string $name){
+    public function __construct(string $user_id,string $name,?string $parent_id = null){
 
         $this->user_id = $user_id;
         $this->parent_id = $parent_id;

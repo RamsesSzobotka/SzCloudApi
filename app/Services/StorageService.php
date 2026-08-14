@@ -6,12 +6,73 @@ use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
 use App\utils\ExceptionCustom\CarpetaCicloException;
+use Illuminate\Support\Str;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class StorageService {
 
     public function addFolder(FolderDto $folder){
-        return Folder::create($folder->toArray());
+        return DB::transaction(function () use ($folder) {
+            $data = $folder->toArray();
+
+            if ($data["parent_id"] !== null){
+                Folder::where("id", $data["parent_id"])
+                    ->where("user_id", $data["user_id"])
+                    ->firstOrFail();
+            }
+
+            $conflict = Folder::where("user_id", $data["user_id"])
+                ->where("parent_id", $data["parent_id"])
+                ->where("name", $data["name"])
+                ->whereNull("deleted_at")
+                ->exists();
+
+            if ($conflict){
+                throw new NombreDuplicadoException("carpeta");
+            }
+
+            return Folder::create($data);
+        });
+    }
+
+    public function addFile(string $userId, UploadedFile $file, string $folderId){
+        return DB::transaction(function () use ($userId, $file, $folderId) {
+
+            Folder::where("id", $folderId)
+                ->where("user_id", $userId)
+                ->firstOrFail();
+
+            $conflict = File::where("user_id", $userId)
+                ->where("folder_id", $folderId)
+                ->where("original_name", $file->getClientOriginalName())
+                ->whereNull("deleted_at")
+                ->exists();
+
+            if ($conflict){
+                throw new NombreDuplicadoException("archivo");
+            }
+
+            $extension = $file->getClientOriginalExtension();
+            $storageName = Str::uuid() . '.' . $extension;
+            $storagePath = "users/{$userId}/files/{$storageName}";
+            $hash = hash_file('sha256', $file->getRealPath());
+
+            Storage::disk('minio')->put($storagePath, file_get_contents($file->getRealPath()));
+
+            return File::create([
+                "user_id" => $userId,
+                "folder_id" => $folderId,
+                "original_name" => $file->getClientOriginalName(),
+                "storage_name" => $storageName,
+                "storage_path" => $storagePath,
+                "mime_type" => $file->getMimeType(),
+                "extension" => $extension,
+                "size" => $file->getSize(),
+                "hash" => $hash,
+            ]);
+        });
     }
 
     public function getFolderContent(string $userId, ?string $folderId = null){

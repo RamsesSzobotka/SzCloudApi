@@ -9,12 +9,12 @@ use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
 use App\utils\ExceptionCustom\CarpetaCicloException;
-use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
-use FolderDto;
 use Illuminate\Http\Request;
+use FolderDto;
 use Security;
+use Exception;
 use StorageService;
 
 class StorageController extends Controller
@@ -48,8 +48,28 @@ class StorageController extends Controller
 
     public function postFolder(Request $req){
         return $this->handleStorageErrors(function() use ($req){
+            $req->validate([
+                "name" => ["required", "string", "max:255"],
+                "parent_id" => ["nullable", "string"],
+            ]);
+
             $user = Security::isOwner();
-            return $this->storageService->addFolder(new FolderDto($user->id,$req->parent_id,$req->name));
+            return $this->storageService->addFolder(new FolderDto($user->id, $req->name, $req->parent_id));
+        });
+    }
+
+    public function postFile(Request $req){
+        return $this->handleStorageErrors(function() use ($req){
+            $req->validate([
+                "file" => ["required", "file", "max:102400"],
+                "folder_id" => ["required", "string"],
+            ]);
+
+            $user = Security::isOwner();
+            return response()->json(
+                $this->storageService->addFile($user->id, $req->file('file'), $req->folder_id),
+                201
+            );
         });
     }
 
