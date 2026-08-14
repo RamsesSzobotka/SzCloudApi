@@ -60,6 +60,18 @@ return [
             'report' => false,
         ],
 
+        'minio' => [
+            'driver' => 's3',
+            'key' => env('MINIO_ROOT_USER'),
+            'secret' => env('MINIO_ROOT_PASSWORD'),
+            'region' => 'us-east-1',
+            'bucket' => env('MINIO_BUCKET', 'szcloud'),
+            'endpoint' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
 
     /*
