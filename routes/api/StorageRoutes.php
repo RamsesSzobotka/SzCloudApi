@@ -14,6 +14,7 @@ Route::prefix("/storage")->middleware("api")->group(function (){
     Route::post("/folder/{folder_id}/restore", [StorageController::class, "restoreFolder"]);
 
     Route::get("/file/{file_id}", [StorageController::class, "getFile"]);
+    Route::post("/file", [StorageController::class, "postFile"]);
     Route::patch("/file/{file_id}/rename", [StorageController::class, "renameFile"]);
     Route::patch("/file/{file_id}/move", [StorageController::class, "moveFile"]);
     Route::delete("/file/{file_id}", [StorageController::class, "deleteFile"]);
