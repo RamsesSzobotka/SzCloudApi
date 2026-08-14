@@ -23,10 +23,9 @@ class StorageController extends Controller
         private StorageService $storageService   
     ){}
 
-    public function postFolder(Request $req){
+    private function handleStorageErrors(callable $action){
         try{
-            $user = Security::isOwner();
-            return $this->storageService->addFolder(new FolderDto($user->id,$req->parent_id,$req->name));
+            return $action();
         }catch(NombreDuplicadoException $e){
             abort(409, $e->getMessage());
         }catch(CarpetaEliminadaException $e){
@@ -44,187 +43,75 @@ class StorageController extends Controller
             abort(422, $e->getMessage());
         }catch(Exception $e){
             HttpError::InternalError($e);
-        }    
+        }
+    }
+
+    public function postFolder(Request $req){
+        return $this->handleStorageErrors(function() use ($req){
+            $user = Security::isOwner();
+            return $this->storageService->addFolder(new FolderDto($user->id,$req->parent_id,$req->name));
+        });
     }
 
     public function getFolderContent(?string $folder_Id = null){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_Id){
             $user = Security::isOwner();
             return response()->json($this->storageService->getFolderContent($user->id,$folder_Id));
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function getFolderInfo(?string $folder_Id = null){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_Id){
             $user = Security::isOwner();
             return response()->json($this->storageService->getFolder($user->id, $folder_Id));
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function getFile(string $file_id){
-        try{
+        return $this->handleStorageErrors(function() use ($file_id){
             $user = Security::isOwner();
             return response()->json($this->storageService->getFile($user->id,$file_id));
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function deleteFolder(string $folder_id){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_id){
             $user = Security::isOwner();
             return response()->json($this->storageService->delete($user->id,$folder_id,"folder"));
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function deleteFile(string $file_id){
-        try{
+        return $this->handleStorageErrors(function() use ($file_id){
             $user = Security::isOwner();
             return response()->json($this->storageService->delete($user->id,$file_id,"file"));
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function restoreFolder(string $folder_id){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_id){
             $user = Security::isOwner();
             return response()->json(
-                    $this->storageService->restoreFolder(
-                        $this->storageService->getFolder($user->id,$folder_id)
-                    )
-                );
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){   
-            HttpError::InternalError($e);
-        }
+                $this->storageService->restoreFolder(
+                    $this->storageService->getFolder($user->id,$folder_id)
+                )
+            );
+        });
     }
-    
+
     public function restoreFile(string $folder_id){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_id){
             $user = Security::isOwner();
             return response()->json(
                 $this->storageService->restoreFile(
                     $this->storageService->getFile($user->id,$folder_id)
                 )
             );
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){   
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function moveFile(string $file_id, Request $request){
-        try{
+        return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
 
             $request->validate([
@@ -239,28 +126,11 @@ class StorageController extends Controller
                     $request->destination_folder_id
                 )
             );
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function moveFolder(string $folder_id, Request $request){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_id, $request){
             $user = Security::isOwner();
 
             $request->validate([
@@ -278,28 +148,11 @@ class StorageController extends Controller
                     $request->destination_folder_id
                 )
             );
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function renameFile(string $file_id, Request $request){
-        try{
+        return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
 
             $request->validate([
@@ -311,28 +164,11 @@ class StorageController extends Controller
             return response()->json(
                 $this->storageService->renameFile($file, $request->name)
             );
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     public function renameFolder(string $folder_id, Request $request){
-        try{
+        return $this->handleStorageErrors(function() use ($folder_id, $request){
             $user = Security::isOwner();
 
             $request->validate([
@@ -344,23 +180,6 @@ class StorageController extends Controller
             return response()->json(
                 $this->storageService->renameFolder($folder, $request->name)
             );
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
-        }catch(CarpetaEliminadaException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaMovimientoPropioException $e){
-            abort(400, $e->getMessage());
-        }catch(CarpetaCicloException $e){
-            abort(400, $e->getMessage());
-        }catch(StorageException $e){
-            LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
-        }catch(ModelNotFoundException $e){
-            abort(404, "El recurso solicitado no existe");
-        }catch(ValidationException $e){
-            abort(422, $e->getMessage());
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 }
