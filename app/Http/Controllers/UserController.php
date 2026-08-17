@@ -25,23 +25,13 @@ class UserController extends Controller
         }
     }
 
-    public function getMe(){
-        try{
-            return response()->json(auth('api')->user());
-        }catch(ModelNotFoundException $e){
-            return abort(404,"Usuario no encontrado")     ;   
-        }catch(Exception $e){
-            return abort(500,"Error interno del servidor");
-        }
-    }
-
     public function patchPassword(Request $req){
         try{
             if(!$user = auth("api")->user()){
                 abort(401);
             }
             
-            return response()->json($this->userService->updatePass($user,$req->password));
+            return response()->json($this->userService->updatePass($user,$req->password,$req->newPassword));
         }catch(Exception $e){
             HttpError::InternalError($e); 
         }

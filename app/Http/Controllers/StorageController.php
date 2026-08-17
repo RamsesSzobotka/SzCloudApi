@@ -66,10 +66,7 @@ class StorageController extends Controller
             ]);
 
             $user = Security::isOwner();
-            return response()->json(
-                $this->storageService->addFile($user->id, $req->file('file'), $req->folder_id),
-                201
-            );
+            return response()->json($this->storageService->addFile($user->id, $req->file('file'), $req->folder_id),201);
         });
     }
 
@@ -119,12 +116,12 @@ class StorageController extends Controller
         });
     }
 
-    public function restoreFile(string $folder_id){
-        return $this->handleStorageErrors(function() use ($folder_id){
+    public function restoreFile(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
             $user = Security::isOwner();
             return response()->json(
                 $this->storageService->restoreFile(
-                    $this->storageService->getFile($user->id,$folder_id)
+                    $this->storageService->getFile($user->id,$file_id)
                 )
             );
         });
@@ -199,6 +196,16 @@ class StorageController extends Controller
 
             return response()->json(
                 $this->storageService->renameFolder($folder, $request->name)
+            );
+        });
+    }
+
+    public function deletePermanent(string $id, Request $req){
+        return $this->handleStorageErrors(function () use ($id, $req){
+            $user = Security::isOwner();
+            $type = $req->input("type", "folder");
+            return response()->json(
+                $this->storageService->deletePermanent($user->id, $id, $type)
             );
         });
     }

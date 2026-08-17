@@ -33,8 +33,8 @@ class UserService{
         return $user->updateOrFail($newData->toArray());
     }
 
-    public function updatePass(User $user, string $newPassword){
-        if(!Hash::check($newPassword,$user->password)){
+    public function updatePass(User $user,string $password, string $newPassword){
+        if(!Hash::check($password,$user->password)){
             return false;
         }
         return $user->updateOrFail([

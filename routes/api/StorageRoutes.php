@@ -3,7 +3,7 @@
 use App\Http\Controllers\StorageController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix("/storage")->middleware("api")->group(function (){
+Route::prefix("/storage")->middleware("auth:api")->group(function (){
 
     Route::get("/folders/{folder_Id?}", [StorageController::class, "getFolderContent"]);
     Route::get("/folder/{folder_Id?}", [StorageController::class, "getFolderInfo"]);
@@ -19,4 +19,6 @@ Route::prefix("/storage")->middleware("api")->group(function (){
     Route::patch("/file/{file_id}/move", [StorageController::class, "moveFile"]);
     Route::delete("/file/{file_id}", [StorageController::class, "deleteFile"]);
     Route::post("/file/{file_id}/restore", [StorageController::class, "restoreFile"]);
+    
+    Route::delete("/trash/{id}/permanent",[StorageController::class, "deletePermanent"]);
 });

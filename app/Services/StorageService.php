@@ -135,11 +135,12 @@ class StorageService {
         }
 
         foreach ($files as $file) {
-            $file->delete();
+            $this->moveFileToTrash($file);
         }
 
         return true;
     }
+
     public function moveFileToTrash(File $file){
         return $file->delete();
     }
@@ -182,7 +183,7 @@ class StorageService {
 
         $folder->files()->onlyTrashed()->restore();
 
-        $children = $folder->children()->onlyTrashed()->get();
+        $children = $folder->childrenWithTrashed()->onlyTrashed()->get();
 
         foreach ($children as $child) {
             $this->restoreFolderContents($child);
@@ -195,6 +196,63 @@ class StorageService {
             "folders" => Folder::onlyTrashed()->where("user_id",$userId)->get(),
             "files" => File::onlyTrashed()->where("user_id",$userId)->get()
         ];
+    }
+
+    public function deleteTrash(string $userId){
+        return DB::transaction(function () use($userId){
+            $folders = Folder::withTrashed()->where("user_id",$userId)->onlyTrashed();
+             
+            foreach( $folders as $folder){
+                $this->deletePermanentFolder($folder);
+            }
+
+            $files = File::withTrashed()->where("user_id",$userId)->onlyTrashed();
+            foreach($files as $file){
+                $this->deletePermanentFile($file);
+            }
+        });
+    }
+
+    public function deletePermanent(string $userId, string $id, string $type = "folder"){
+        return DB::transaction(function () use ($userId, $id, $type) {
+
+            if (!in_array($type, ["folder", "file"])) {
+                throw new InvalidArgumentException("Invalid element type");
+            }
+
+            $element = $type === "folder"
+                ? Folder::withTrashed()->where("user_id", $userId)
+                    ->where("id", $id)
+                    ->firstOrFail()
+                : File::withTrashed()->where("user_id", $userId)
+                    ->where("id", $id)
+                    ->firstOrFail();
+
+            return $type === "folder"
+                ? $this->deletePermanentFolder($element)
+                : $this->deletePermanentFile($element);
+        });
+    }
+
+    public function deletePermanentFolder(Folder $folder){
+        $children = $folder->childrenWithTrashed()->get();
+        $files = File::withTrashed()->where("folder_id", $folder->id)->get();
+
+        $folder->forceDelete();
+
+        foreach ($children as $child) {
+            $this->deletePermanentFolder($child);
+        }
+
+        foreach ($files as $file) {
+            $this->deletePermanentFile($file);
+        }
+
+        return true;
+    }
+    
+    public function deletePermanentFile(File $file){
+        return $file->forceDelete();
     }
 
     public function moveFile(File $file, ?string $folderId = null){
