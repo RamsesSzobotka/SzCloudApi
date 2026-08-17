@@ -1,15 +1,27 @@
 services:
   php:
-    image: php:8.3-fpm
+    build: .
     volumes:
       - .:/var/www/html
     ports:
-      - "9000:9000"
+      - "8000:8000"
     depends_on:
       - postgres
       - redis
     networks:
       - backend
+
+  artisan:
+    build: .
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    depends_on:
+      - postgres
+    networks:
+      - backend
+    profiles:
+      - migrate
 
   redis:
     image: redis:7-alpine

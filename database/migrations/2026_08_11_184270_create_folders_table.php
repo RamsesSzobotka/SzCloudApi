@@ -15,12 +15,14 @@ return new class extends Migration
         Schema::create('folders', function (Blueprint $table) {
             $table->uuid("id")->primary();
             $table->foreignUuid("user_id")->constrained("users");
-            $table->foreignUuid("parent_id")->nullable()->constrained("folders", "id");
+            $table->foreignUuid("parent_id")->nullable();
             $table->string("name");
             $table->boolean("is_system")->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
+
+        DB::statement('ALTER TABLE folders ADD CONSTRAINT folders_parent_id_foreign FOREIGN KEY (parent_id) REFERENCES folders(id)');
 
         DB::statement('CREATE UNIQUE INDEX folders_user_id_parent_id_name_unique ON folders (user_id, parent_id, name) WHERE deleted_at IS NULL');
     }
