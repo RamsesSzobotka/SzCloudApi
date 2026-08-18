@@ -1,7 +1,9 @@
 <?php
-
+namespace App\Services;
 use App\Models\Folder;
 use App\Models\File;
+use App\Dtos\FileDto;
+use App\Dtos\FolderDto;
 use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
@@ -10,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 
 class StorageService {
 
@@ -37,18 +40,26 @@ class StorageService {
         });
     }
 
-    public function addFile(string $userId, UploadedFile $file, string $folderId){
+    public function addFile(string $userId, UploadedFile $file, ?string $folderId = null){
         return DB::transaction(function () use ($userId, $file, $folderId) {
 
-            Folder::where("id", $folderId)
-                ->where("user_id", $userId)
-                ->firstOrFail();
+            if ($folderId !== null) {
+                Folder::where("id", $folderId)
+                    ->where("user_id", $userId)
+                    ->firstOrFail();
+            }
 
-            $conflict = File::where("user_id", $userId)
-                ->where("folder_id", $folderId)
+            $conflictQuery = File::where("user_id", $userId)
                 ->where("original_name", $file->getClientOriginalName())
-                ->whereNull("deleted_at")
-                ->exists();
+                ->whereNull("deleted_at");
+
+            if ($folderId !== null) {
+                $conflictQuery->where("folder_id", $folderId);
+            } else {
+                $conflictQuery->whereNull("folder_id");
+            }
+
+            $conflict = $conflictQuery->exists();
 
             if ($conflict){
                 throw new NombreDuplicadoException("archivo");
@@ -101,6 +112,14 @@ class StorageService {
 
     public function getFile(string $userId, string $fileId){
         return File::where("user_id", $userId)->where("id",$fileId)->firstOrFail();
+    }
+
+    public function getTrashedFolder(string $userId, string $folderId){
+        return Folder::withTrashed()->where("user_id", $userId)->where("id",$folderId)->firstOrFail();
+    }
+
+    public function getTrashedFile(string $userId, string $fileId){
+        return File::withTrashed()->where("user_id", $userId)->where("id",$fileId)->firstOrFail();
     }
     
     public function delete(string $userId, string $id, string $type = "folder"){
@@ -200,15 +219,24 @@ class StorageService {
 
     public function deleteTrash(string $userId){
         return DB::transaction(function () use($userId){
-            $folders = Folder::withTrashed()->where("user_id",$userId)->onlyTrashed();
-             
-            foreach( $folders as $folder){
-                $this->deletePermanentFolder($folder);
+            $folderIds = Folder::withTrashed()->where("user_id",$userId)
+                ->onlyTrashed()->pluck("id");
+
+            foreach($folderIds as $folderId){
+                $folder = Folder::withTrashed()->where("id",$folderId)->first();
+                if($folder){
+                    $this->deletePermanentFolder($folder);
+                }
             }
 
-            $files = File::withTrashed()->where("user_id",$userId)->onlyTrashed();
-            foreach($files as $file){
-                $this->deletePermanentFile($file);
+            $fileIds = File::withTrashed()->where("user_id",$userId)
+                ->onlyTrashed()->pluck("id");
+
+            foreach($fileIds as $fileId){
+                $file = File::withTrashed()->where("id",$fileId)->first();
+                if($file){
+                    $this->deletePermanentFile($file);
+                }
             }
         });
     }
@@ -252,6 +280,7 @@ class StorageService {
     }
     
     public function deletePermanentFile(File $file){
+        Storage::disk('minio')->delete($file->storage_path);
         return $file->forceDelete();
     }
 
