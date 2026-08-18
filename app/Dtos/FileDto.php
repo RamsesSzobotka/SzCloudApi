@@ -1,5 +1,5 @@
 <?php
-namespace App\Dtos\User;
+namespace App\Dtos;
 
 class FileDto
 {

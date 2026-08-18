@@ -1,5 +1,5 @@
 <?php
-use Illuminate\Http\Request;
+namespace App\Dtos;
 
 class FolderDto{
     private string $user_id;

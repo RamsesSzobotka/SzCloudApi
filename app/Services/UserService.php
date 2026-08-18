@@ -1,11 +1,11 @@
 <?php
+
 namespace App\Services;
+
 use App\Models\User;
 use App\utils\ExceptionCustom\DuplicateException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Hash;
-use App\Dtos\User\UserDto;
-use App\Dtos\User\UserUpdateDto;
 
 class UserService{
 
@@ -13,9 +13,10 @@ class UserService{
         return User::FindOrFail($id);
     }
 
-    public  function add(UserDto $user){
+    public  function add(array $data){
         try{
-            return User::create($user->toArray());
+            $data['password'] = Hash::make($data['password']);
+            return User::create($data);
         }catch (QueryException $e){
 
             if($e->getCode() === '23505') {
@@ -29,8 +30,8 @@ class UserService{
         return $user->deleteOrFail();
     }
 
-    public function update(User $user, UserUpdateDto $newData){
-        return $user->updateOrFail($newData->toArray());
+    public function update(User $user, array $data){
+        return $user->updateOrFail($data);
     }
 
     public function updatePass(User $user,string $password, string $newPassword){
