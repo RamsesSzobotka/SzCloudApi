@@ -10,6 +10,7 @@ class FilePermission extends Model
     use HasUuids;
     protected $primaryKey = 'id';
     public $incrementing = false;
+    protected $keyType = 'string';
 
     protected $fillable = [
         "file_id",

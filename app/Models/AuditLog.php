@@ -10,6 +10,7 @@ class AuditLog extends Model
     use HasUuids;
     protected $primaryKey = 'id';
     public $incrementing = false;
+    protected $keyType = 'string';
 
     public $timestamps = false;
 
