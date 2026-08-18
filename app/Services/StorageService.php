@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Aws\S3\S3Client;
 use InvalidArgumentException;
 
 class StorageService {
@@ -388,15 +389,26 @@ class StorageService {
     }
 
     public function urlDownloadFile(File $file){
-        $url = Storage::disk("minio")->temporaryUrl(
-            $file->storage_path,
-            now()->addMinutes(30),
-            [
-                'ResponseContentDisposition' =>
-                'attachment; filename="' . $file->original_name . '"',
-            ]
-        );
+        $publicClient = new S3Client([
+            'credentials' => [
+                'key'    => config('filesystems.disks.minio.key'),
+                'secret' => config('filesystems.disks.minio.secret'),
+            ],
+            'region'  => config('filesystems.disks.minio.region'),
+            'endpoint' => env('MINIO_PUBLIC_ENDPOINT', 'http://localhost:9000'),
+            'use_path_style_endpoint' => true,
+            'version' => 'latest',
+        ]);
 
-        return $url;
+        $command = $publicClient->getCommand('GetObject', [
+            'Bucket' => config('filesystems.disks.minio.bucket'),
+            'Key'    => $file->storage_path,
+            'ResponseContentDisposition' =>
+                'attachment; filename="' . $file->original_name . '"',
+        ]);
+
+        return (string) $publicClient->createPresignedRequest(
+            $command, now()->addMinutes(30)
+        )->getUri();
     }
 }
