@@ -388,7 +388,7 @@ class StorageService {
     }
 
     public function urlDownloadFile(File $file){
-        $url = Storage::disk("s3")->temporaryUrl(
+        $url = Storage::disk("minio")->temporaryUrl(
             $file->storage_path,
             now()->addMinutes(30),
             [
