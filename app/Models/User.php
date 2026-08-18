@@ -67,4 +67,9 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasOne(StorageUsage::class);
     }
+
+    public function sesiones()
+    {
+        return $this->hasMany(Sesion::class);
+    }
 }
