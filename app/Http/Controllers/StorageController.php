@@ -117,6 +117,10 @@ class StorageController extends Controller
         summary: "Listar contenido de carpeta raíz",
         description: "Retorna el contenido de la carpeta raíz del usuario.",
         security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "per_page", in: "query", required: false, description: "Elementos por página", schema: new OA\Schema(type: "integer", default: 10)),
+            new OA\Parameter(name: "page", in: "query", required: false, description: "Número de página", schema: new OA\Schema(type: "integer", default: 1)),
+        ],
         responses: [
             new OA\Response(response: 200, description: "Contenido de la carpeta raíz"),
             new OA\Response(response: 401, description: "No autenticado"),
@@ -130,6 +134,8 @@ class StorageController extends Controller
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_Id", in: "path", required: true, description: "ID de la carpeta (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+            new OA\Parameter(name: "per_page", in: "query", required: false, description: "Elementos por página", schema: new OA\Schema(type: "integer", default: 10)),
+            new OA\Parameter(name: "page", in: "query", required: false, description: "Número de página", schema: new OA\Schema(type: "integer", default: 1)),
         ],
         responses: [
             new OA\Response(response: 200, description: "Contenido de la carpeta"),
@@ -137,10 +143,12 @@ class StorageController extends Controller
             new OA\Response(response: 404, description: "Carpeta no encontrada"),
         ]
     )]
-    public function getFolderContent(?string $folder_Id = null){
-        return $this->handleStorageErrors(function() use ($folder_Id){
+    public function getFolderContent(Request $request, ?string $folder_Id = null){
+        return $this->handleStorageErrors(function() use ($request, $folder_Id){
             $user = Security::isOwner();
-            return response()->json($this->storageService->getFolderContent($user->id,$folder_Id));
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            return response()->json($this->storageService->getFolderContent($user->id, $folder_Id, $perPage, $page));
         });
     }
 

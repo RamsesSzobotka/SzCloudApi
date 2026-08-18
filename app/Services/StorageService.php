@@ -87,23 +87,40 @@ class StorageService {
         });
     }
 
-    public function getFolderContent(string $userId, ?string $folderId = null){
+    public function getFolderContent(string $userId, ?string $folderId = null, int $perPage = 10, int $page = 1){
+        $folders = Folder::where("user_id", $userId)
+            ->when(
+                $folderId,
+                fn ($query) => $query->where("parent_id", $folderId),
+                fn ($query) => $query->whereNull("parent_id")
+            )
+            ->paginate($perPage, ['*'], 'page_folders', $page);
+
+        $files = File::where("user_id", $userId)
+            ->when(
+                $folderId,
+                fn ($query) => $query->where("folder_id", $folderId),
+                fn ($query) => $query->whereNull("folder_id")
+            )
+            ->paginate($perPage, ['*'], 'page_files', $page);
 
         return [
-            "folders" => Folder::where("user_id", $userId)
-                ->when(
-                    $folderId,
-                    fn ($query) => $query->where("parent_id", $folderId),
-                    fn ($query) => $query->whereNull("parent_id")
-                )
-                ->get(),
-            "files" => File::where("user_id", $userId)
-                ->when(
-                    $folderId,
-                    fn ($query) => $query->where("folder_id", $folderId),
-                    fn ($query) => $query->whereNull("folder_id")
-                )
-                ->get()
+            "folders" => $folders->items(),
+            "files" => $files->items(),
+            "pagination" => [
+                "folders" => [
+                    "current_page" => $folders->currentPage(),
+                    "last_page" => $folders->lastPage(),
+                    "per_page" => $folders->perPage(),
+                    "total" => $folders->total(),
+                ],
+                "files" => [
+                    "current_page" => $files->currentPage(),
+                    "last_page" => $files->lastPage(),
+                    "per_page" => $files->perPage(),
+                    "total" => $files->total(),
+                ],
+            ]
         ];
     }
     
