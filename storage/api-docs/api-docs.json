@@ -1,0 +1,1234 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "SzCloudApi",
+        "description": "API para almacenamiento en la nube — gestión de archivos, carpetas y papelera.",
+        "contact": {
+            "name": "SzCloud Support",
+            "email": "support@szcloud.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Servidor de desarrollo"
+        }
+    ],
+    "paths": {
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Iniciar sesión",
+                "description": "Autentica al usuario y retorna tokens en cookies httponly.",
+                "operationId": "a3b306d14572d1f4bd6c064b3233e7b8",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sesión iniciada — tokens en cookies",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sesión iniciada correctamente"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Credenciales incorrectas"
+                    }
+                }
+            }
+        },
+        "/api/refresh": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Renovar access token",
+                "description": "Valora el refresh token y genera un nuevo access token. Rota el refresh token.",
+                "operationId": "848bfa513130bb2967e5f08edc75ee1e",
+                "responses": {
+                    "200": {
+                        "description": "Access token renovado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Token renovado"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Refresh token inválido o expirado"
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Cerrar sesión",
+                "description": "Invalida el token JWT y revoca el refresh token.",
+                "operationId": "fe8f3429cd6979b3b4517e186505f9f9",
+                "responses": {
+                    "200": {
+                        "description": "Sesión cerrada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Registrar usuario",
+                "description": "Crea una nueva cuenta de usuario.",
+                "operationId": "8a56853624e025573120a09a4c75d468",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Usuario registrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Usuario registrado correctamente."
+                                        },
+                                        "user": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "El usuario ya se encuentra registrado"
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Obtener usuario actual",
+                "description": "Retorna los datos del usuario autenticado.",
+                "operationId": "119b179be584e5a991d485e8a76115d9",
+                "responses": {
+                    "200": {
+                        "description": "Datos del usuario",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "name": {
+                                            "type": "string",
+                                            "example": "John Doe"
+                                        },
+                                        "email": {
+                                            "type": "string",
+                                            "format": "email",
+                                            "example": "user@example.com"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder": {
+            "post": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Crear carpeta",
+                "description": "Crea una nueva carpeta en la ubicación especificada.",
+                "operationId": "6dc7a6e6d61cc44928573c469b96eaf7",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Mis documentos"
+                                    },
+                                    "parent_id": {
+                                        "description": "ID de la carpeta padre. Null para raíz.",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Carpeta creada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "409": {
+                        "description": "Nombre duplicado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file": {
+            "post": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Subir archivo",
+                "description": "Sube un nuevo archivo al almacenamiento.",
+                "operationId": "95dee6ee53f80eaa9824204ec676c246",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "description": "Archivo a subir",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "folder_id": {
+                                        "description": "ID de la carpeta destino. Null para raíz.",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Archivo subido"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/content": {
+            "get": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Listar contenido de carpeta raíz",
+                "description": "Retorna el contenido de la carpeta raíz del usuario.",
+                "operationId": "f3107443ad1d357092d98beb73b76af8",
+                "responses": {
+                    "200": {
+                        "description": "Contenido de la carpeta raíz"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/content/{folder_Id}": {
+            "get": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Listar contenido de carpeta",
+                "description": "Retorna el contenido de una carpeta específica.",
+                "operationId": "d661644b45b3c3c82c6cc110502a08c3",
+                "parameters": [
+                    {
+                        "name": "folder_Id",
+                        "in": "path",
+                        "description": "ID de la carpeta (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Contenido de la carpeta"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/{folder_Id}": {
+            "get": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Obtener info de carpeta",
+                "description": "Retorna los metadatos de una carpeta específica.",
+                "operationId": "925bfb4d776a311fcd15052a234c88b9",
+                "parameters": [
+                    {
+                        "name": "folder_Id",
+                        "in": "path",
+                        "description": "ID de la carpeta (UUID).",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metadatos de la carpeta"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Obtener info de archivo",
+                "description": "Retorna los metadatos de un archivo específico.",
+                "operationId": "9e2e5b9f3e4ace021413ee2eb71020e8",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metadatos del archivo"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Eliminar archivo",
+                "description": "Envía un archivo a la papelera (soft delete).",
+                "operationId": "2ff5520d2a54b88e5db4920643af790c",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo eliminado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/{folder_id}": {
+            "delete": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Eliminar carpeta",
+                "description": "Envía una carpeta a la papelera (soft delete).",
+                "operationId": "85923bb8801337e440d3f1aa5b67272c",
+                "parameters": [
+                    {
+                        "name": "folder_id",
+                        "in": "path",
+                        "description": "ID de la carpeta (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Carpeta eliminada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/{folder_id}/restore": {
+            "post": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Restaurar carpeta",
+                "description": "Restaura una carpeta desde la papelera.",
+                "operationId": "97b096dfc908dacb7e8ce8db803846f2",
+                "parameters": [
+                    {
+                        "name": "folder_id",
+                        "in": "path",
+                        "description": "ID de la carpeta (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Carpeta restaurada"
+                    },
+                    "400": {
+                        "description": "Carpeta no está en papelera"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/restore": {
+            "post": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Restaurar archivo",
+                "description": "Restaura un archivo desde la papelera.",
+                "operationId": "1e2e613c7414916a4fc2cb068c519136",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo restaurado"
+                    },
+                    "400": {
+                        "description": "Archivo no está en papelera"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/move": {
+            "patch": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Mover archivo",
+                "description": "Mueve un archivo a otra carpeta.",
+                "operationId": "a22b7d7aa336b996209fdea16ce35eb9",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo a mover (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "destination_folder_id"
+                                ],
+                                "properties": {
+                                    "destination_folder_id": {
+                                        "description": "ID de la carpeta destino. Null para raíz.",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Archivo movido"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/{folder_id?}/move": {
+            "patch": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Mover carpeta",
+                "description": "Mueve una carpeta a otra ubicación.",
+                "operationId": "71d67421def5ec6bc28b7fce9c7ab15c",
+                "parameters": [
+                    {
+                        "name": "folder_id",
+                        "in": "path",
+                        "description": "ID de la carpeta a mover (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "destination_folder_id"
+                                ],
+                                "properties": {
+                                    "destination_folder_id": {
+                                        "description": "ID de la carpeta destino. Null para raíz.",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Carpeta movida"
+                    },
+                    "400": {
+                        "description": "Error de movimiento (ciclo, origen = destino)"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/rename": {
+            "patch": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Renombrar archivo",
+                "description": "Cambia el nombre de un archivo existente.",
+                "operationId": "c60ae2aa9104d49ca5e10c7245758523",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "nuevo_nombre.pdf"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Archivo renombrado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folder/{folder_id}/rename": {
+            "patch": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Renombrar carpeta",
+                "description": "Cambia el nombre de una carpeta existente.",
+                "operationId": "bddd59f6325c085501b5008b40859429",
+                "parameters": [
+                    {
+                        "name": "folder_id",
+                        "in": "path",
+                        "description": "ID de la carpeta (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Nuevo nombre"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Carpeta renombrada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/trash": {
+            "get": {
+                "tags": [
+                    "Trash"
+                ],
+                "summary": "Listar papelera",
+                "description": "Retorna todos los elementos en la papelera.",
+                "operationId": "6c725cd61015e2651a1cca8b3ca5e738",
+                "responses": {
+                    "200": {
+                        "description": "Lista de elementos en papelera"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Trash"
+                ],
+                "summary": "Vaciar papelera",
+                "description": "Elimina permanentemente todos los elementos de la papelera.",
+                "operationId": "e0d15cc77bb3a2faacd008de703d9fed",
+                "responses": {
+                    "200": {
+                        "description": "Papelera vaciada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/trash/{id}/permanent": {
+            "delete": {
+                "tags": [
+                    "Trash"
+                ],
+                "summary": "Eliminación permanente",
+                "description": "Elimina permanentemente un elemento específico de la papelera.",
+                "operationId": "268f234059e0b102190123853e1d21ba",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del elemento (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "type": {
+                                        "description": "Tipo de elemento a eliminar",
+                                        "type": "string",
+                                        "default": "folder",
+                                        "enum": [
+                                            "folder",
+                                            "file"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Elemento eliminado permanentemente"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Elemento no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/user": {
+            "put": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Actualizar usuario",
+                "description": "Actualiza el nombre del usuario autenticado.",
+                "operationId": "d41032885c7ac526391dda2dd9e8291e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "last_name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Juan"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Pérez"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Usuario actualizado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Eliminar usuario",
+                "description": "Elimina permanentemente la cuenta del usuario autenticado.",
+                "operationId": "9281cc2cda63356f7e0a6e4652e698d2",
+                "responses": {
+                    "200": {
+                        "description": "Usuario eliminado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Actualizar contraseña",
+                "description": "Cambia la contraseña del usuario autenticado.",
+                "operationId": "0b2660f45f4dcdd1ff8f82099fd2ba52",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "password",
+                                    "newPassword"
+                                ],
+                                "properties": {
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "oldpassword"
+                                    },
+                                    "newPassword": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newsecretpassword",
+                                        "minLength": 8
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Contraseña actualizada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "LoginRequest": {
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "user@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "secretpassword"
+                    }
+                },
+                "type": "object"
+            },
+            "RegisterRequest": {
+                "required": [
+                    "name",
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Juan Pérez"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "juan@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "secretpassword",
+                        "minLength": 8
+                    }
+                },
+                "type": "object"
+            },
+            "UpdatePasswordRequest": {
+                "required": [
+                    "password",
+                    "newPassword"
+                ],
+                "properties": {
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "oldpassword"
+                    },
+                    "newPassword": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "newsecretpassword",
+                        "minLength": 8
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateUserRequest": {
+                "required": [
+                    "name",
+                    "last_name"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Juan"
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "example": "Pérez"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Autenticación JWT. Usa el botón Authorize con email y contraseña para obtener el token automáticamente.",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Registro, login y gestión de sesión"
+        },
+        {
+            "name": "User Management",
+            "description": "Actualización y eliminación de usuario"
+        },
+        {
+            "name": "Folders",
+            "description": "CRUD de carpetas — crear, renombrar, mover, restaurar"
+        },
+        {
+            "name": "Files",
+            "description": "CRUD de archivos — subir, renombrar, mover, restaurar"
+        },
+        {
+            "name": "Trash",
+            "description": "Papelera — listar, vaciar, eliminación permanente"
+        }
+    ]
+}
