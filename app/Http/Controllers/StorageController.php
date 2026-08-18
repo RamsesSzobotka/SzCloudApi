@@ -512,4 +512,34 @@ class StorageController extends Controller
             );
         });
     }
+
+    #[OA\Get(
+        path: "/api/storage/file/{file_id}/download",
+        tags: ["Files"],
+        summary: "Descargar archivo",
+        description: "Genera y retorna una URL temporaria (30 min) para descargar el archivo desde S3.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo a descargar", schema: new OA\Schema(type: "string", format: "uuid"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "URL de descarga generada", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "url", type: "string", format: "uri", description: "URL temporaria de descarga (válida por 30 minutos)")
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function download(string $id){
+        return $this->handleStorageErrors(function () use ($id){
+            $user = Security::isOwner();
+            $file = $this->storageService->getFile($user->id,$id);
+
+            return response()->json([
+                "url" => $this->storageService->urlDownloadFile($file)
+            ]);
+        });
+    }
 }

@@ -79,7 +79,7 @@
                     "Auth"
                 ],
                 "summary": "Renovar access token",
-                "description": "Valora el refresh token y genera un nuevo access token. Rota el refresh token.",
+                "description": "Valida el refresh token y genera un nuevo access token. Rota el refresh token.",
                 "operationId": "848bfa513130bb2967e5f08edc75ee1e",
                 "responses": {
                     "200": {
@@ -976,6 +976,58 @@
                     },
                     "404": {
                         "description": "Elemento no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/download": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Descargar archivo",
+                "description": "Genera y retorna una URL temporaria (30 min) para descargar el archivo desde S3.",
+                "operationId": "b9c5c09ad0cfe518140d46c7b3995086",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo a descargar",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "URL de descarga generada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "url": {
+                                            "description": "URL temporaria de descarga (válida por 30 minutos)",
+                                            "type": "string",
+                                            "format": "uri"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
                     }
                 },
                 "security": [

@@ -386,4 +386,17 @@ class StorageService {
         }
         return $folder->update(["name" => $newName]);
     }
+
+    public function urlDownloadFile(File $file){
+        $url = Storage::disk("s3")->temporaryUrl(
+            $file->storage_path,
+            now()->addMinutes(30),
+            [
+                'ResponseContentDisposition' =>
+                'attachment; filename="' . $file->original_name . '"',
+            ]
+        );
+
+        return $url;
+    }
 }

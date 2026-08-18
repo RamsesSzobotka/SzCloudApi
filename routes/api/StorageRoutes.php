@@ -22,6 +22,7 @@ Route::prefix("/storage")->middleware("auth:api")->group(function (){
         Route::patch("/{file_id}/move", [StorageController::class, "moveFile"]);
         Route::delete("/{file_id}", [StorageController::class, "deleteFile"]);
         Route::post("/{file_id}/restore", [StorageController::class, "restoreFile"]);
+        Route::get("/{file_id}/download",[StorageController::class, "download"]);
     });
 
     Route::prefix("/trash")->group(function (){
