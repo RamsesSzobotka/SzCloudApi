@@ -19,9 +19,9 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
-        'plan_id',
         'storage_limit',
         'storage_used',
+        'file_count',
     ];
 
     protected $hidden = [
@@ -36,11 +36,6 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims()
     {
         return [];
-    }
-
-    public function plan()
-    {
-        return $this->belongsTo(Plan::class);
     }
 
     public function folders()
@@ -63,9 +58,15 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(AuditLog::class);
     }
 
-    public function storageUsage()
+    public function userExpansions()
     {
-        return $this->hasOne(StorageUsage::class);
+        return $this->hasMany(UserExpansion::class);
+    }
+
+    public function expansions()
+    {
+        return $this->belongsToMany(Expansion::class, 'user_expansions')
+                    ->withTimestamps();
     }
 
     public function sesiones()

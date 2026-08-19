@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-class StorageUsage extends Model
+class UserExpansion extends Model
 {
     use HasUuids;
     protected $primaryKey = 'id';
@@ -14,12 +14,6 @@ class StorageUsage extends Model
 
     protected $fillable = [
         "user_id",
-        "used_bytes",
-        "file_count",
+        "expansion_id",
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
 }

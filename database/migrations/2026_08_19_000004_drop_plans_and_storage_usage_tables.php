@@ -1,0 +1,33 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::dropIfExists('storage_usage');
+        Schema::dropIfExists('plans');
+    }
+
+    public function down(): void
+    {
+        Schema::create('plans', function (Blueprint $table) {
+            $table->uuid("id")->primary();
+            $table->string("name", 100)->unique();
+            $table->bigInteger("storage_limit");
+            $table->bigInteger("max_file_size");
+            $table->timestamps();
+        });
+
+        Schema::create('storage_usage', function (Blueprint $table) {
+            $table->uuid("id")->primary();
+            $table->foreignUuid("user_id")->unique()->constrained("users");
+            $table->bigInteger("used_bytes")->default(0);
+            $table->bigInteger("file_count")->default(0);
+            $table->timestamps();
+        });
+    }
+};
