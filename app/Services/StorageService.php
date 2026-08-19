@@ -2,6 +2,7 @@
 namespace App\Services;
 use App\Models\Folder;
 use App\Models\File;
+use App\Models\User;
 use App\Dtos\FileDto;
 use App\Dtos\FolderDto;
 use App\utils\ExceptionCustom\NombreDuplicadoException;
@@ -16,6 +17,10 @@ use Aws\S3\S3Client;
 use InvalidArgumentException;
 
 class StorageService {
+
+    public function __construct(
+        private StorageUsageService $storageUsageService,
+    ){}
 
     public function addFolder(FolderDto $folder){
         return DB::transaction(function () use ($folder) {
@@ -43,6 +48,13 @@ class StorageService {
 
     public function addFile(string $userId, UploadedFile $file, ?string $folderId = null){
         return DB::transaction(function () use ($userId, $file, $folderId) {
+
+            $user = User::findOrFail($userId);
+            $fileSize = $file->getSize();
+
+            if (!$this->storageUsageService->storageVerify($user, $fileSize)) {
+                throw new \App\utils\ExceptionCustom\StorageException("No tienes suficiente espacio de almacenamiento");
+            }
 
             if ($folderId !== null) {
                 Folder::where("id", $folderId)
@@ -73,7 +85,7 @@ class StorageService {
 
             Storage::disk('minio')->put($storagePath, file_get_contents($file->getRealPath()));
 
-            return File::create([
+            $fileRecord = File::create([
                 "user_id" => $userId,
                 "folder_id" => $folderId,
                 "original_name" => $file->getClientOriginalName(),
@@ -81,9 +93,13 @@ class StorageService {
                 "storage_path" => $storagePath,
                 "mime_type" => $file->getMimeType(),
                 "extension" => $extension,
-                "size" => $file->getSize(),
+                "size" => $fileSize,
                 "hash" => $hash,
             ]);
+
+            $this->storageUsageService->addFile($user, $fileSize);
+
+            return $fileRecord;
         });
     }
 
@@ -299,6 +315,10 @@ class StorageService {
     
     public function deletePermanentFile(File $file){
         Storage::disk('minio')->delete($file->storage_path);
+
+        $user = User::findOrFail($file->user_id);
+        $this->storageUsageService->deleteFile($user, $file->size);
+
         return $file->forceDelete();
     }
 
