@@ -15,6 +15,7 @@ use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
 use App\utils\ExceptionCustom\CarpetaCicloException;
 use App\Services\StorageService;
+use App\Services\StorageUsageService;
 use App\utils\Security;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
@@ -25,7 +26,8 @@ use Exception;
 class StorageController extends Controller
 {
     public function __construct(
-        private StorageService $storageService   
+        private StorageService $storageService,
+        private StorageUsageService $storageUsageService,
     ){}
 
     private function handleStorageErrors(callable $action){
@@ -549,5 +551,52 @@ class StorageController extends Controller
                 "url" => $this->storageService->urlDownloadFile($file)
             ]);
         });
+    }
+
+    #[OA\Get(
+        path: "/api/storage/info",
+        tags: ["Storage"],
+        summary: "Obtener info de almacenamiento y plan",
+        description: "Retorna el uso de almacenamiento y el plan actual del usuario.",
+        security: [["bearerAuth" => []]],
+        responses: [
+            new OA\Response(response: 200, description: "Info de almacenamiento"),
+            new OA\Response(response: 401, description: "No autenticado"),
+        ]
+    )]
+    public function getStorageInfo(){
+        $user = Security::isOwner();
+        return response()->json(
+            $this->storageUsageService->getStorageInfo($user)
+        );
+    }
+
+    #[OA\Post(
+        path: "/api/storage/verify",
+        tags: ["Storage"],
+        summary: "Verificar si cabe un archivo",
+        description: "Verifica si el usuario tiene espacio suficiente para un archivo del tamaño indicado.",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["file_size"],
+                properties: [
+                    new OA\Property(property: "file_size", type: "integer", description: "Tamaño del archivo en bytes"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Resultado de verificación"),
+            new OA\Response(response: 401, description: "No autenticado"),
+        ]
+    )]
+    public function storageVerify(Request $request){
+        $user = Security::isOwner();
+        $request->validate(["file_size" => "required|integer|min:1"]);
+
+        return response()->json([
+            "allowed" => $this->storageUsageService->storageVerify($user, $request->file_size),
+        ]);
     }
 }

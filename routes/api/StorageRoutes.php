@@ -4,7 +4,10 @@ use App\Http\Controllers\StorageController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix("/storage")->middleware("auth:api")->group(function (){
-    
+
+    Route::get("/info", [StorageController::class, "getStorageInfo"]);
+    Route::post("/verify", [StorageController::class, "storageVerify"]);
+
     Route::prefix("/folder")->group(function (){
         Route::get("/content/{folder_Id?}", [StorageController::class, "getFolderContent"]);
         Route::get("/{folder_Id}", [StorageController::class, "getFolderInfo"]);
