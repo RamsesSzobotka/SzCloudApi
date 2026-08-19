@@ -1,5 +1,7 @@
 # ☁️ Cloud Storage API — Diseño de Base de Datos
 
+> Actualizado: 2026-08-19
+
 ## 1. Objetivo
 
 Este documento define únicamente la estructura de la base de datos PostgreSQL para la Cloud Storage API.
@@ -27,8 +29,8 @@ audit_logs
 Como tablas adicionales para funcionalidades posteriores:
 
 ```text
-plans
-storage_usage
+expansions
+user_expansions
 upload_sessions
 ```
 
@@ -54,8 +56,7 @@ folders         files
 
 users ───────────► audit_logs
 
-users ───────────► storage_usage
-plans ───────────► users
+users ◄─────────── user_expansions ────────────► expansions
 ```
 
 ---
@@ -72,55 +73,54 @@ Representa a los usuarios registrados en el sistema.
 | `name` | `varchar(150)` | NOT NULL | Nombre del usuario |
 | `email` | `varchar(255)` | NOT NULL, UNIQUE | Correo electrónico |
 | `password` | `varchar(255)` | NOT NULL | Contraseña almacenada mediante hash |
-| `plan_id` | `uuid` | FK, NULL | Plan de almacenamiento |
 | `storage_limit` | `bigint` | NOT NULL | Espacio máximo permitido en bytes |
 | `storage_used` | `bigint` | NOT NULL | Espacio utilizado en bytes |
+| `file_count` | `bigint` | NOT NULL | Cantidad de archivos |
 | `created_at` | `timestamp` | NOT NULL | Fecha de creación |
 | `updated_at` | `timestamp` | NOT NULL | Última actualización |
 
 ### Valores iniciales
 
 ```text
-storage_limit = 5368709120
+storage_limit = 10737418240   (10 GB gratis)
 storage_used = 0
+file_count = 0
 ```
-
-El valor anterior representa un límite inicial de 5 GB.
 
 ### Índices
 
 ```text
 PRIMARY KEY (id)
 UNIQUE (email)
-INDEX (plan_id)
 ```
 
 ---
 
-# 5. Tabla `plans`
+# 5. Tabla `expansions`
 
-Define los planes disponibles para los usuarios.
+Catálogo de expansiones de almacenamiento disponibles para compra.
 
-Esta tabla puede implementarse desde el inicio o agregarse posteriormente.
+Esta tabla es de referencia: si cambian precios o tamaños, solo se actualizan las filas.
 
 ## Campos
 
 | Campo | PostgreSQL | Restricciones | Descripción |
 |---|---|---|---|
-| `id` | `uuid` | PK | Identificador del plan |
-| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nombre del plan |
-| `storage_limit` | `bigint` | NOT NULL | Espacio máximo en bytes |
-| `max_file_size` | `bigint` | NOT NULL | Tamaño máximo de archivo en bytes |
+| `id` | `bigint` | PK, auto-increment | Identificador de la expansión |
+| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nombre de la expansión |
+| `storage_bytes` | `bigint` | NOT NULL | Espacio que otorga en bytes |
+| `price_cents` | `integer` | NOT NULL | Precio en centavos |
 | `created_at` | `timestamp` | NOT NULL | Fecha de creación |
 | `updated_at` | `timestamp` | NOT NULL | Última actualización |
 
 ### Ejemplo
 
-```text
-Free
-storage_limit = 5368709120
-max_file_size = 104857600
-```
+| name | storage_bytes | price_cents |
+|------|---------------|-------------|
+| 1GB | 1073741824 | 199 |
+| 10GB | 10737418240 | 1499 |
+| 50GB | 53687091200 | 5999 |
+| 100GB | 107374182400 | 9999 |
 
 ---
 
@@ -440,29 +440,38 @@ users.id
 
 ---
 
-# 12. Tabla `storage_usage`
+# 12. Tabla `user_expansions`
 
-Permite almacenar el uso de almacenamiento de cada usuario.
+Historial de expansiones compradas por cada usuario.
 
-Esta tabla es opcional porque el uso también puede calcularse directamente desde `files`.
+Cada compra suma el `storage_bytes` de la expansión al `storage_limit` del usuario.
 
 ## Campos
 
 | Campo | PostgreSQL | Restricciones | Descripción |
 |---|---|---|---|
 | `id` | `uuid` | PK | Identificador |
-| `user_id` | `uuid` | FK, UNIQUE | Usuario |
-| `used_bytes` | `bigint` | NOT NULL | Espacio utilizado |
-| `file_count` | `bigint` | NOT NULL | Cantidad de archivos |
-| `updated_at` | `timestamp` | NOT NULL | Última actualización |
+| `user_id` | `uuid` | FK, NOT NULL | Usuario que compró |
+| `expansion_id` | `bigint` | FK, NOT NULL | Expansión comprada |
+| `created_at` | `timestamp` | NOT NULL | Fecha de compra |
 
-## Relación
+## Relaciones
 
 ```text
-storage_usage.user_id
+user_expansions.user_id
     ↓
 users.id
+
+user_expansions.expansion_id
+    ↓
+expansions.id
 ```
+
+## Regla de negocio
+
+Las expansiones son acumulables. Ejemplo:
+- Usuario compra 100GB + 50GB + 1GB + 1GB + 1GB + 1GB
+- storage_limit = 10GB (base) + 100GB + 50GB + 1GB + 1GB + 1GB + 1GB = 154GB
 
 ---
 
@@ -511,8 +520,8 @@ users
  ├── hasMany file_permissions
  ├── hasMany share_links (indirectamente mediante files)
  ├── hasMany audit_logs
- ├── hasOne storage_usage
- └── belongsTo plan
+ ├── hasMany user_expansions
+ └── belongsToMany expansions (via user_expansions)
 ```
 
 ## Folders
@@ -571,9 +580,6 @@ audit_logs
 # 15. Claves foráneas
 
 ```text
-users.plan_id
-    → plans.id
-
 folders.user_id
     → users.id
 
@@ -604,8 +610,11 @@ share_links.file_id
 audit_logs.user_id
     → users.id
 
-storage_usage.user_id
+user_expansions.user_id
     → users.id
+
+user_expansions.expansion_id
+    → expansions.id
 
 upload_sessions.user_id
     → users.id
@@ -800,15 +809,15 @@ boolean
 Para evitar problemas con claves foráneas:
 
 ```text
-1. plans
-2. users
-3. folders
-4. files
-5. file_versions
-6. file_permissions
-7. share_links
-8. audit_logs
-9. storage_usage
+1. users
+2. folders
+3. files
+4. file_versions
+5. file_permissions
+6. share_links
+7. audit_logs
+8. expansions
+9. user_expansions
 10. upload_sessions
 ```
 
@@ -838,8 +847,8 @@ audit_logs
 Y finalmente:
 
 ```text
-plans
-storage_usage
+expansions
+user_expansions
 upload_sessions
 ```
 
@@ -849,7 +858,7 @@ upload_sessions
 
 ```text
                          ┌─────────────┐
-                         │    plans    │
+                         │  expansions │
                          └──────┬──────┘
                                 │
                                 ▼
@@ -876,11 +885,8 @@ upload_sessions
                           └──────────────┘
 
                ┌──────────────────┐
-               │ storage_usage    │
-               └────────┬─────────┘
-                        │
-                        ▼
-                      users
+               │ user_expansions  │
+               └──────────────────┘
 
                ┌──────────────────┐
                │ upload_sessions  │
