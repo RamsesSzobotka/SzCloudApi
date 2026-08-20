@@ -101,7 +101,18 @@ class FolderService {
         return DB::transaction(function () use ($folder) {
             $this->restoreParentFolders($folder->parentWithTrashed()->first());
 
-            $this->restoreFolderContents($folder);
+            $conflict = Folder::where("user_id", $folder->user_id)
+                ->where("parent_id", $folder->parent_id)
+                ->where("name", $folder->name)
+                ->where("id", "!=", $folder->id)
+                ->first();
+
+            if ($conflict) {
+                $this->mergeFolders($folder, $conflict);
+                return true;
+            }
+
+            $folder->restore();
 
             return true;
         });
@@ -117,20 +128,6 @@ class FolderService {
         $parent = $folder->parentWithTrashed()->first();
 
         $this->restoreParentFolders($parent);
-    }
-
-    private function restoreFolderContents(Folder $folder){
-        if ($folder->trashed()) {
-            $folder->restore();
-        }
-
-        $folder->files()->onlyTrashed()->restore();
-
-        $children = $folder->childrenWithTrashed()->onlyTrashed()->get();
-
-        foreach ($children as $child) {
-            $this->restoreFolderContents($child);
-        }
     }
 
     public function getTrash(string $userId) : array {
@@ -182,6 +179,49 @@ class FolderService {
         return true;
     }
 
+    public function getFolderContentCount(Folder $folder): int {
+        $folders = $folder->childrenWithTrashed()->count();
+        $files = File::withTrashed()->where("folder_id", $folder->id)->count();
+        return $folders + $files;
+    }
+
+    public function mergeFolders(Folder $source, Folder $target): void {
+        File::withTrashed()->where("folder_id", $source->id)->update(["folder_id" => $target->id]);
+
+        $this->moveChildFolders($source->id, $target->id);
+
+        $source->forceDelete();
+    }
+
+    private function moveChildFolders(string $sourceParentId, string $targetParentId): void {
+        $children = Folder::withTrashed()->where("parent_id", $sourceParentId)->get();
+
+        foreach ($children as $child) {
+            $child->update(["parent_id" => $targetParentId]);
+        }
+    }
+
+    public function checkFolderName(string $userId, ?string $parentId, string $name): array {
+        $existing = Folder::where("user_id", $userId)
+            ->where("parent_id", $parentId)
+            ->where("name", $name)
+            ->whereNull("deleted_at")
+            ->first();
+
+        if (!$existing) {
+            return ["exists" => false, "conflicting_folder" => null];
+        }
+
+        return [
+            "exists" => true,
+            "conflicting_folder" => [
+                "id" => $existing->id,
+                "name" => $existing->name,
+                "content_count" => $this->getFolderContentCount($existing),
+            ],
+        ];
+    }
+
     public function moveFolder(Folder $folder, ?string $folderId = null){
         if ($folderId !== null){
             if ($folderId === $folder->id){
@@ -201,14 +241,23 @@ class FolderService {
             }
         }
 
-        $conflict = Folder::where("user_id", $folder->user_id)
+        $conflictFolder = Folder::where("user_id", $folder->user_id)
             ->where("parent_id", $folderId)
             ->where("name", $folder->name)
             ->where("id", "!=", $folder->id)
-            ->exists();
+            ->first();
 
-        if ($conflict){
-            throw new NombreDuplicadoException("carpeta");
+        if ($conflictFolder){
+            $sourceCount = $this->getFolderContentCount($folder);
+            $targetCount = $this->getFolderContentCount($conflictFolder);
+
+            if ($sourceCount <= $targetCount) {
+                $this->mergeFolders($folder, $conflictFolder);
+                return true;
+            } else {
+                $this->mergeFolders($conflictFolder, $folder);
+                return $folder->update(["parent_id" => $folderId]);
+            }
         }
 
         return $folder->update(["parent_id" => $folderId]);
@@ -241,10 +290,21 @@ class FolderService {
                     ->where("parent_id", $folder->parent_id)
                     ->where("name", $newName)
                     ->where("id", "!=", $folder->id)
-                    ->exists();
+                    ->first();
+
         if($conflict){
-            throw new NombreDuplicadoException("carpeta");
+            $sourceCount = $this->getFolderContentCount($folder);
+            $targetCount = $this->getFolderContentCount($conflict);
+
+            if ($sourceCount <= $targetCount) {
+                $this->mergeFolders($folder, $conflict);
+                return true;
+            } else {
+                $this->mergeFolders($conflict, $folder);
+                return $folder->update(["name" => $newName]);
+            }
         }
+
         return $folder->update(["name" => $newName]);
     }
 }

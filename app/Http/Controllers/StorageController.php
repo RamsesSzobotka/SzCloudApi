@@ -570,6 +570,45 @@ class StorageController extends Controller
     }
 
     #[OA\Get(
+        path: "/api/storage/folder/check-name",
+        tags: ["Folders"],
+        summary: "Verificar si existe una carpeta con el mismo nombre",
+        description: "Verifica si ya existe una carpeta con el mismo nombre en la ubicación. Si existe, retorna info del conflicto para posible fusión.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "parent_id", in: "query", required: false, description: "ID de la carpeta padre (UUID). Null para raíz.", schema: new OA\Schema(type: "string", format: "uuid", nullable: true)),
+            new OA\Parameter(name: "name", in: "query", required: true, description: "Nombre de la carpeta a verificar.", schema: new OA\Schema(type: "string")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Resultado de verificación", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "exists", type: "boolean", description: "Si existe una carpeta con ese nombre"),
+                    new OA\Property(property: "conflicting_folder", type: "object", nullable: true, description: "Info de la carpeta conflictiva", properties: [
+                        new OA\Property(property: "id", type: "string", format: "uuid"),
+                        new OA\Property(property: "name", type: "string"),
+                        new OA\Property(property: "content_count", type: "integer", description: "Cantidad de elementos directos (carpetas + archivos)"),
+                    ]),
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+        ]
+    )]
+    public function checkFolderName(Request $request){
+        return $this->handleStorageErrors(function() use ($request){
+            $user = Security::isOwner();
+            $request->validate(["name" => "required|string|max:255"]);
+
+            return response()->json(
+                $this->folderService->checkFolderName(
+                    $user->id,
+                    $request->input("parent_id"),
+                    $request->name
+                )
+            );
+        });
+    }
+
+    #[OA\Get(
         path: "/api/storage/file/check-name",
         tags: ["Files"],
         summary: "Verificar si existe un archivo con el mismo nombre",

@@ -9,6 +9,7 @@ Route::prefix("/storage")->middleware("auth:api")->group(function (){
     Route::post("/verify", [StorageController::class, "storageVerify"]);
 
     Route::prefix("/folder")->group(function (){
+        Route::get("/check-name", [StorageController::class, "checkFolderName"]);
         Route::get("/content/{folder_Id?}", [StorageController::class, "getFolderContent"]);
         Route::get("/{folder_Id}", [StorageController::class, "getFolderInfo"]);
         Route::post("/", [StorageController::class, "postFolder"]);
