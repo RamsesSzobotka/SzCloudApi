@@ -62,7 +62,7 @@ class StorageController extends Controller
         path: "/api/storage/folder",
         tags: ["Folders"],
         summary: "Crear carpeta",
-        description: "Crea una nueva carpeta en la ubicación especificada.",
+        description: "Crea una nueva carpeta en la ubicación especificada. Si ya existe una carpeta con el mismo nombre, retorna la existente sin crear duplicado. Se recomienda usar el endpoint check-name antes de crear para verificar conflictos.",
         security: [["bearerAuth" => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -75,9 +75,8 @@ class StorageController extends Controller
             )
         ),
         responses: [
-            new OA\Response(response: 200, description: "Carpeta creada"),
+            new OA\Response(response: 200, description: "Carpeta creada (o existente si ya hay una con el mismo nombre)"),
             new OA\Response(response: 401, description: "No autenticado"),
-            new OA\Response(response: 409, description: "Nombre duplicado"),
         ]
     )]
     public function postFolder(StoreFolderRequest $req){
@@ -253,7 +252,7 @@ class StorageController extends Controller
         path: "/api/storage/folder/{folder_id}/restore",
         tags: ["Folders"],
         summary: "Restaurar carpeta",
-        description: "Restaura una carpeta desde la papelera.",
+        description: "Restaura una carpeta desde la papelera. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan. Solo restaura la carpeta, sus hijos se mantienen en papelera hasta restaurar individualmente.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_id", in: "path", required: true, description: "ID de la carpeta (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -280,7 +279,7 @@ class StorageController extends Controller
         path: "/api/storage/file/{file_id}/restore",
         tags: ["Files"],
         summary: "Restaurar archivo",
-        description: "Restaura un archivo desde la papelera.",
+        description: "Restaura un archivo desde la papelera. Si su carpeta padre está en papelera, se restaura automáticamente.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -307,7 +306,7 @@ class StorageController extends Controller
         path: "/api/storage/file/{file_id}/move",
         tags: ["Files"],
         summary: "Mover archivo",
-        description: "Mueve un archivo a otra carpeta.",
+        description: "Mueve un archivo a otra carpeta. Si ya existe un archivo con el mismo nombre en el destino, se renombra automáticamente con sufijo (n). Se recomienda usar check-name antes de mover para verificar conflictos.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo a mover (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -346,7 +345,7 @@ class StorageController extends Controller
         path: "/api/storage/folder/{folder_id?}/move",
         tags: ["Folders"],
         summary: "Mover carpeta",
-        description: "Mueve una carpeta a otra ubicación.",
+        description: "Mueve una carpeta a otra ubicación. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente. Se recomienda usar check-name antes de mover para verificar conflictos.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_id", in: "path", required: true, description: "ID de la carpeta a mover (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -389,7 +388,7 @@ class StorageController extends Controller
         path: "/api/storage/file/{file_id}/rename",
         tags: ["Files"],
         summary: "Renombrar archivo",
-        description: "Cambia el nombre de un archivo existente.",
+        description: "Cambia el nombre de un archivo existente. Si ya existe un archivo con el mismo nombre, se agrega sufijo (n) automáticamente.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -425,7 +424,7 @@ class StorageController extends Controller
         path: "/api/storage/folder/{folder_id}/rename",
         tags: ["Folders"],
         summary: "Renombrar carpeta",
-        description: "Cambia el nombre de una carpeta existente.",
+        description: "Cambia el nombre de una carpeta existente. Si ya existe una carpeta con el mismo nombre, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_id", in: "path", required: true, description: "ID de la carpeta (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -573,7 +572,7 @@ class StorageController extends Controller
         path: "/api/storage/folder/check-name",
         tags: ["Folders"],
         summary: "Verificar si existe una carpeta con el mismo nombre",
-        description: "Verifica si ya existe una carpeta con el mismo nombre en la ubicación. Si existe, retorna info del conflicto para posible fusión.",
+        description: "Verifica si ya existe una carpeta con el mismo nombre en la ubicación. Si existe, retorna info del conflicto para posible fusión. Se recomienda usar este endpoint antes de crear, mover o renombrar carpetas.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "parent_id", in: "query", required: false, description: "ID de la carpeta padre (UUID). Null para raíz.", schema: new OA\Schema(type: "string", format: "uuid", nullable: true)),
@@ -612,7 +611,7 @@ class StorageController extends Controller
         path: "/api/storage/file/check-name",
         tags: ["Files"],
         summary: "Verificar si existe un archivo con el mismo nombre",
-        description: "Verifica si ya existe un archivo con el mismo nombre en una carpeta. Si existe, retorna el nombre sugerido con sufijo (n).",
+        description: "Verifica si ya existe un archivo con el mismo nombre en una carpeta. Si existe, retorna el nombre sugerido con sufijo (n). Se recomienda usar este endpoint antes de mover o renombrar archivos.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_id", in: "query", required: false, description: "ID de la carpeta (UUID). Null para raíz.", schema: new OA\Schema(type: "string", format: "uuid", nullable: true)),

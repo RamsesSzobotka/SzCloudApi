@@ -333,7 +333,7 @@
                     "Folders"
                 ],
                 "summary": "Crear carpeta",
-                "description": "Crea una nueva carpeta en la ubicación especificada.",
+                "description": "Crea una nueva carpeta en la ubicación especificada. Si ya existe una carpeta con el mismo nombre, retorna la existente sin crear duplicado. Se recomienda usar el endpoint check-name antes de crear para verificar conflictos.",
                 "operationId": "6dc7a6e6d61cc44928573c469b96eaf7",
                 "requestBody": {
                     "required": true,
@@ -364,13 +364,10 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Carpeta creada"
+                        "description": "Carpeta creada (o existente si ya hay una con el mismo nombre)"
                     },
                     "401": {
                         "description": "No autenticado"
-                    },
-                    "409": {
-                        "description": "Nombre duplicado"
                     }
                 },
                 "security": [
@@ -690,7 +687,7 @@
                     "Folders"
                 ],
                 "summary": "Restaurar carpeta",
-                "description": "Restaura una carpeta desde la papelera.",
+                "description": "Restaura una carpeta desde la papelera. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan. Solo restaura la carpeta, sus hijos se mantienen en papelera hasta restaurar individualmente.",
                 "operationId": "97b096dfc908dacb7e8ce8db803846f2",
                 "parameters": [
                     {
@@ -731,7 +728,7 @@
                     "Files"
                 ],
                 "summary": "Restaurar archivo",
-                "description": "Restaura un archivo desde la papelera.",
+                "description": "Restaura un archivo desde la papelera. Si su carpeta padre está en papelera, se restaura automáticamente.",
                 "operationId": "1e2e613c7414916a4fc2cb068c519136",
                 "parameters": [
                     {
@@ -772,7 +769,7 @@
                     "Files"
                 ],
                 "summary": "Mover archivo",
-                "description": "Mueve un archivo a otra carpeta.",
+                "description": "Mueve un archivo a otra carpeta. Si ya existe un archivo con el mismo nombre en el destino, se renombra automáticamente con sufijo (n). Se recomienda usar check-name antes de mover para verificar conflictos.",
                 "operationId": "a22b7d7aa336b996209fdea16ce35eb9",
                 "parameters": [
                     {
@@ -833,7 +830,7 @@
                     "Folders"
                 ],
                 "summary": "Mover carpeta",
-                "description": "Mueve una carpeta a otra ubicación.",
+                "description": "Mueve una carpeta a otra ubicación. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente. Se recomienda usar check-name antes de mover para verificar conflictos.",
                 "operationId": "71d67421def5ec6bc28b7fce9c7ab15c",
                 "parameters": [
                     {
@@ -897,7 +894,7 @@
                     "Files"
                 ],
                 "summary": "Renombrar archivo",
-                "description": "Cambia el nombre de un archivo existente.",
+                "description": "Cambia el nombre de un archivo existente. Si ya existe un archivo con el mismo nombre, se agrega sufijo (n) automáticamente.",
                 "operationId": "c60ae2aa9104d49ca5e10c7245758523",
                 "parameters": [
                     {
@@ -954,7 +951,7 @@
                     "Folders"
                 ],
                 "summary": "Renombrar carpeta",
-                "description": "Cambia el nombre de una carpeta existente.",
+                "description": "Cambia el nombre de una carpeta existente. Si ya existe una carpeta con el mismo nombre, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente.",
                 "operationId": "bddd59f6325c085501b5008b40859429",
                 "parameters": [
                     {
@@ -1160,13 +1157,93 @@
                 ]
             }
         },
+        "/api/storage/folder/check-name": {
+            "get": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Verificar si existe una carpeta con el mismo nombre",
+                "description": "Verifica si ya existe una carpeta con el mismo nombre en la ubicación. Si existe, retorna info del conflicto para posible fusión. Se recomienda usar este endpoint antes de crear, mover o renombrar carpetas.",
+                "operationId": "0277e8e75761569f9700df24f1a2650a",
+                "parameters": [
+                    {
+                        "name": "parent_id",
+                        "in": "query",
+                        "description": "ID de la carpeta padre (UUID). Null para raíz.",
+                        "required": false,
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "Nombre de la carpeta a verificar.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resultado de verificación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "exists": {
+                                            "description": "Si existe una carpeta con ese nombre",
+                                            "type": "boolean"
+                                        },
+                                        "conflicting_folder": {
+                                            "description": "Info de la carpeta conflictiva",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "content_count": {
+                                                    "description": "Cantidad de elementos directos (carpetas + archivos)",
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/storage/file/check-name": {
             "get": {
                 "tags": [
                     "Files"
                 ],
                 "summary": "Verificar si existe un archivo con el mismo nombre",
-                "description": "Verifica si ya existe un archivo con el mismo nombre en una carpeta. Si existe, retorna el nombre sugerido con sufijo (n).",
+                "description": "Verifica si ya existe un archivo con el mismo nombre en una carpeta. Si existe, retorna el nombre sugerido con sufijo (n). Se recomienda usar este endpoint antes de mover o renombrar archivos.",
                 "operationId": "ff99945e63a5a827ef0655c912d19ae7",
                 "parameters": [
                     {

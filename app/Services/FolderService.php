@@ -3,7 +3,6 @@ namespace App\Services;
 use App\Models\Folder;
 use App\Models\File;
 use App\Dtos\FolderDto;
-use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
 use App\utils\ExceptionCustom\CarpetaCicloException;
@@ -21,14 +20,14 @@ class FolderService {
                     ->firstOrFail();
             }
 
-            $conflict = Folder::where("user_id", $data["user_id"])
+            $existing = Folder::where("user_id", $data["user_id"])
                 ->where("parent_id", $data["parent_id"])
                 ->where("name", $data["name"])
                 ->whereNull("deleted_at")
-                ->exists();
+                ->first();
 
-            if ($conflict){
-                throw new NombreDuplicadoException("carpeta");
+            if ($existing){
+                return $existing;
             }
 
             return Folder::create($data);
