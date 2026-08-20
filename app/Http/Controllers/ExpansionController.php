@@ -77,7 +77,7 @@ class ExpansionController extends Controller
             $success = $this->storageUsageService->applyExpansion($user, $expansion);
 
             if (!$success) {
-                abort(500, "No se pudo aplicar la expansión");
+                abort(400, "No se pudo aplicar la expansión");
             }
 
             return response()->json([

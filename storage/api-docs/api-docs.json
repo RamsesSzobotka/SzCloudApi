@@ -246,6 +246,87 @@
                 ]
             }
         },
+        "/api/expansions": {
+            "get": {
+                "tags": [
+                    "Expansions"
+                ],
+                "summary": "Listar expansiones disponibles",
+                "description": "Retorna el catálogo de expansiones de almacenamiento disponibles para compra.",
+                "operationId": "5e511249b9c71d0d9bdb870804ba2b61",
+                "responses": {
+                    "200": {
+                        "description": "Lista de expansiones"
+                    }
+                }
+            }
+        },
+        "/api/expansions/{id}": {
+            "get": {
+                "tags": [
+                    "Expansions"
+                ],
+                "summary": "Obtener info de una expansión",
+                "description": "Retorna los detalles de una expansión específica.",
+                "operationId": "317c17b0b3e85553d17dbb25914a561b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la expansión",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detalles de la expansión"
+                    },
+                    "404": {
+                        "description": "Expansión no encontrada"
+                    }
+                }
+            }
+        },
+        "/api/expansions/{id}/buy": {
+            "post": {
+                "tags": [
+                    "Expansions"
+                ],
+                "summary": "Comprar una expansión",
+                "description": "Registra la compra de una expansión y suma el espacio al límite del usuario.",
+                "operationId": "6ef3259054b3d2b151bdb393d844fce2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la expansión",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Expansión aplicada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Expansión no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/storage/folder": {
             "post": {
                 "tags": [
@@ -1079,6 +1160,71 @@
                 ]
             }
         },
+        "/api/storage/info": {
+            "get": {
+                "tags": [
+                    "Storage"
+                ],
+                "summary": "Obtener info de almacenamiento y plan",
+                "description": "Retorna el uso de almacenamiento y el plan actual del usuario.",
+                "operationId": "3712f2bf173fb5b42dae3a1913a04196",
+                "responses": {
+                    "200": {
+                        "description": "Info de almacenamiento"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/verify": {
+            "post": {
+                "tags": [
+                    "Storage"
+                ],
+                "summary": "Verificar si cabe un archivo",
+                "description": "Verifica si el usuario tiene espacio suficiente para un archivo del tamaño indicado.",
+                "operationId": "9f08b31be8c730b27f3924e40b1c7cc9",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "file_size"
+                                ],
+                                "properties": {
+                                    "file_size": {
+                                        "description": "Tamaño del archivo en bytes",
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Resultado de verificación"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/user": {
             "put": {
                 "tags": [
@@ -1323,6 +1469,14 @@
         {
             "name": "Trash",
             "description": "Papelera — listar, vaciar, eliminación permanente"
+        },
+        {
+            "name": "Expansions",
+            "description": "Expansions"
+        },
+        {
+            "name": "Storage",
+            "description": "Storage"
         }
     ]
 }

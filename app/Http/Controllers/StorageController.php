@@ -22,6 +22,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 use Exception;
+use InvalidArgumentException;
 
 class StorageController extends Controller
 {
@@ -43,11 +44,13 @@ class StorageController extends Controller
             abort(400, $e->getMessage());
         }catch(StorageException $e){
             LoggerHelper::error("StorageException: " . $e->getMessage());
-            abort(400, "No se pudo completar la operación");
+            abort(400, $e->getMessage());
         }catch(ModelNotFoundException $e){
             abort(404, "El recurso solicitado no existe");
         }catch(ValidationException $e){
             abort(422, $e->getMessage());
+        }catch(InvalidArgumentException $e){
+            abort(400, $e->getMessage());
         }catch(Exception $e){
             HttpError::InternalError($e);
         }
