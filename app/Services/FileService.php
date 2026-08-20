@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use \App\utils\ExceptionCustom\StorageException;
 use Aws\S3\S3Client;
 
 class FileService {
@@ -19,23 +20,22 @@ class FileService {
         private FolderService $folderService,
     ){}
 
-    public function addFile(string $userId, UploadedFile $file, ?string $folderId = null){
-        return DB::transaction(function () use ($userId, $file, $folderId) {
+    public function addFile(User $user, UploadedFile $file, ?string $folderId = null){
+        return DB::transaction(function () use ($user, $file, $folderId) {
 
-            $user = User::findOrFail($userId);
             $fileSize = $file->getSize();
 
             if (!$this->storageUsageService->storageVerify($user, $fileSize)) {
-                throw new \App\utils\ExceptionCustom\StorageException("No tienes suficiente espacio de almacenamiento");
+                throw new StorageException("No tienes suficiente espacio de almacenamiento");
             }
 
             if ($folderId !== null) {
                 Folder::where("id", $folderId)
-                    ->where("user_id", $userId)
+                    ->where("user_id", $user->id)
                     ->firstOrFail();
             }
 
-            $conflictQuery = File::where("user_id", $userId)
+            $conflictQuery = File::where("user_id", $user->id)
                 ->where("original_name", $file->getClientOriginalName())
                 ->whereNull("deleted_at");
 
@@ -53,13 +53,13 @@ class FileService {
 
             $extension = $file->getClientOriginalExtension();
             $storageName = Str::uuid() . '.' . $extension;
-            $storagePath = "users/{$userId}/files/{$storageName}";
+            $storagePath = "users/{$user->id}/files/{$storageName}";
             $hash = hash_file('sha256', $file->getRealPath());
 
             Storage::disk('minio')->put($storagePath, file_get_contents($file->getRealPath()));
 
             $fileRecord = File::create([
-                "user_id" => $userId,
+                "user_id" => $user->id,
                 "folder_id" => $folderId,
                 "original_name" => $file->getClientOriginalName(),
                 "storage_name" => $storageName,
@@ -106,6 +106,52 @@ class FileService {
         return $file->forceDelete();
     }
 
+    public static function findAvailableName(string $userId, ?string $folderId, string $name, ?string $extension, ?string $excludeId = null): string {
+        $baseName = pathinfo($name, PATHINFO_FILENAME);
+        $ext = $extension ? "." . $extension : "";
+        $candidate = $name;
+        $number = 1;
+
+        $query = File::where("user_id", $userId)
+            ->where("folder_id", $folderId)
+            ->where("original_name", $candidate);
+
+        if ($excludeId) {
+            $query->where("id", "!=", $excludeId);
+        }
+
+        while ($query->exists()) {
+            $candidate = $baseName . " (" . $number . ")" . $ext;
+            $number++;
+
+            $query = File::where("user_id", $userId)
+                ->where("folder_id", $folderId)
+                ->where("original_name", $candidate);
+
+            if ($excludeId) {
+                $query->where("id", "!=", $excludeId);
+            }
+        }
+
+        return $candidate;
+    }
+
+    public function checkFileName(string $userId, ?string $folderId, string $name): array {
+        $exists = File::where("user_id", $userId)
+            ->where("folder_id", $folderId)
+            ->where("original_name", $name)
+            ->exists();
+
+        if (!$exists) {
+            return ["exists" => false, "suggested_name" => null];
+        }
+
+        $extension = pathinfo($name, PATHINFO_EXTENSION);
+        $suggested = self::findAvailableName($userId, $folderId, $name, $extension ?: null);
+
+        return ["exists" => true, "suggested_name" => $suggested];
+    }
+
     public function moveFile(File $file, ?string $folderId = null){
         if ($folderId !== null){
             $destination = Folder::where("id", $folderId)
@@ -123,24 +169,23 @@ class FileService {
             ->where("id", "!=", $file->id)
             ->exists();
 
-        if ($conflict){
-            throw new NombreDuplicadoException("archivo");
+        $updates = ["folder_id" => $folderId];
+
+        if ($conflict) {
+            $updates["original_name"] = self::findAvailableName(
+                $file->user_id, $folderId, $file->original_name, $file->extension, $file->id
+            );
         }
 
-        return $file->update(["folder_id" => $folderId]);
+        return $file->update($updates);
     }
 
     public function renameFile(File $file, string $newName){
-        $conflict = File::where("user_id", $file->user_id)
-                    ->where("folder_id", $file->folder_id)
-                    ->where("original_name", $newName)
-                    ->where("id", "!=", $file->id)
-                    ->exists();
+        $available = self::findAvailableName(
+            $file->user_id, $file->folder_id, $newName, $file->extension, $file->id
+        );
 
-        if($conflict){
-            throw new NombreDuplicadoException("archivo");
-        }
-        return $file->update(["original_name" => $newName]);
+        return $file->update(["original_name" => $available]);
     }
 
     public function urlDownloadFile(File $file){
@@ -156,7 +201,8 @@ class FileService {
         ]);
 
         $command = $publicClient->getCommand('GetObject', [
-            'Bucket' => config('filesystems.disks.minio.bucket'),
+            
+        'Bucket' => config('filesystems.disks.minio.bucket'),
             'Key'    => $file->storage_path,
             'ResponseContentDisposition' =>
                 'attachment; filename="' . $file->original_name . '"',
@@ -166,5 +212,8 @@ class FileService {
             $command, now()->addMinutes(30)
         )->getUri();
     }
-
+    
+    //en desarrollo
+    public function addFileVersion(){}
+    
 }

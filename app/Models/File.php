@@ -30,35 +30,29 @@ class File extends Model
         "hash",
     ];
 
-    protected function casts(): array
-    {
+    protected function casts(): array{
         return [
             "deleted_at" => "datetime",
         ];
     }
 
-    public function user()
-    {
+    public function user(){
         return $this->belongsTo(User::class);
     }
 
-    public function folder()
-    {
+    public function folder(){
         return $this->belongsTo(Folder::class, "folder_id");
     }
 
-    public function versions()
-    {
+    public function versions(){
         return $this->hasMany(FileVersion::class);
     }
 
-    public function permissions()
-    {
+    public function permissions(){
         return $this->hasMany(FilePermission::class);
     }
 
-    public function shareLinks()
-    {
+    public function shareLinks(){
         return $this->hasMany(ShareLink::class);
     }
 }

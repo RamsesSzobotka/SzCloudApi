@@ -5,6 +5,7 @@ use App\Models\File;
 use App\Dtos\FolderDto;
 use Illuminate\Http\UploadedFile;
 
+//@deprecated
 class StorageService {
 
     public function __construct(

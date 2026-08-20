@@ -19,6 +19,7 @@ Route::prefix("/storage")->middleware("auth:api")->group(function (){
     });
    
     Route::prefix("/file")->group(function (){
+        Route::get("/check-name", [StorageController::class, "checkFileName"]);
         Route::get("/{file_id}", [StorageController::class, "getFile"]);
         Route::post("/", [StorageController::class, "postFile"]);
         Route::patch("/{file_id}/rename", [StorageController::class, "renameFile"]);

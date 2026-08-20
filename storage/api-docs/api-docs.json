@@ -1160,6 +1160,73 @@
                 ]
             }
         },
+        "/api/storage/file/check-name": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Verificar si existe un archivo con el mismo nombre",
+                "description": "Verifica si ya existe un archivo con el mismo nombre en una carpeta. Si existe, retorna el nombre sugerido con sufijo (n).",
+                "operationId": "ff99945e63a5a827ef0655c912d19ae7",
+                "parameters": [
+                    {
+                        "name": "folder_id",
+                        "in": "query",
+                        "description": "ID de la carpeta (UUID). Null para raíz.",
+                        "required": false,
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "Nombre del archivo a verificar.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resultado de verificación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "exists": {
+                                            "description": "Si existe un archivo con ese nombre",
+                                            "type": "boolean"
+                                        },
+                                        "suggested_name": {
+                                            "description": "Nombre sugerido si hay conflicto",
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/storage/info": {
             "get": {
                 "tags": [

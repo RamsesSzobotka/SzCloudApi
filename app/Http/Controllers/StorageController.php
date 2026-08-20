@@ -114,7 +114,7 @@ class StorageController extends Controller
     public function postFile(StoreFileRequest $req){
         return $this->handleStorageErrors(function() use ($req){
             $user = Security::isOwner();
-            return response()->json($this->fileService->addFile($user->id, $req->file('file'), $req->folder_id),201);
+            return response()->json($this->fileService->addFile($user, $req->file('file'), $req->folder_id),201);
         });
     }
 
@@ -566,6 +566,41 @@ class StorageController extends Controller
             return response()->json([
                 "url" => $this->fileService->urlDownloadFile($file)
             ]);
+        });
+    }
+
+    #[OA\Get(
+        path: "/api/storage/file/check-name",
+        tags: ["Files"],
+        summary: "Verificar si existe un archivo con el mismo nombre",
+        description: "Verifica si ya existe un archivo con el mismo nombre en una carpeta. Si existe, retorna el nombre sugerido con sufijo (n).",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "folder_id", in: "query", required: false, description: "ID de la carpeta (UUID). Null para raíz.", schema: new OA\Schema(type: "string", format: "uuid", nullable: true)),
+            new OA\Parameter(name: "name", in: "query", required: true, description: "Nombre del archivo a verificar.", schema: new OA\Schema(type: "string")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Resultado de verificación", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "exists", type: "boolean", description: "Si existe un archivo con ese nombre"),
+                    new OA\Property(property: "suggested_name", type: "string", nullable: true, description: "Nombre sugerido si hay conflicto"),
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+        ]
+    )]
+    public function checkFileName(Request $request){
+        return $this->handleStorageErrors(function() use ($request){
+            $user = Security::isOwner();
+            $request->validate(["name" => "required|string|max:255"]);
+
+            return response()->json(
+                $this->fileService->checkFileName(
+                    $user->id,
+                    $request->input("folder_id"),
+                    $request->name
+                )
+            );
         });
     }
 
