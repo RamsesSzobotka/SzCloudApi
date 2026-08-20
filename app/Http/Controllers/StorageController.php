@@ -14,7 +14,8 @@ use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
 use App\utils\ExceptionCustom\CarpetaCicloException;
-use App\Services\StorageService;
+use App\Services\FileService;
+use App\Services\FolderService;
 use App\Services\StorageUsageService;
 use App\utils\Security;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -27,7 +28,8 @@ use InvalidArgumentException;
 class StorageController extends Controller
 {
     public function __construct(
-        private StorageService $storageService,
+        private FileService $fileService,
+        private FolderService $folderService,
         private StorageUsageService $storageUsageService,
     ){}
 
@@ -81,7 +83,7 @@ class StorageController extends Controller
     public function postFolder(StoreFolderRequest $req){
         return $this->handleStorageErrors(function() use ($req){
             $user = Security::isOwner();
-            return $this->storageService->addFolder(new FolderDto($user->id, $req->name, $req->parent_id));
+            return $this->folderService->addFolder(new FolderDto($user->id, $req->name, $req->parent_id));
         });
     }
 
@@ -112,7 +114,7 @@ class StorageController extends Controller
     public function postFile(StoreFileRequest $req){
         return $this->handleStorageErrors(function() use ($req){
             $user = Security::isOwner();
-            return response()->json($this->storageService->addFile($user->id, $req->file('file'), $req->folder_id),201);
+            return response()->json($this->fileService->addFile($user->id, $req->file('file'), $req->folder_id),201);
         });
     }
 
@@ -153,7 +155,7 @@ class StorageController extends Controller
             $user = Security::isOwner();
             $perPage = $request->input('per_page', 10);
             $page = $request->input('page', 1);
-            return response()->json($this->storageService->getFolderContent($user->id, $folder_Id, $perPage, $page));
+            return response()->json($this->folderService->getFolderContent($user->id, $folder_Id, $perPage, $page));
         });
     }
 
@@ -175,7 +177,7 @@ class StorageController extends Controller
     public function getFolderInfo(?string $folder_Id = null){
         return $this->handleStorageErrors(function() use ($folder_Id){
             $user = Security::isOwner();
-            return response()->json($this->storageService->getFolder($user->id, $folder_Id));
+            return response()->json($this->folderService->getFolder($user->id, $folder_Id));
         });
     }
 
@@ -197,7 +199,7 @@ class StorageController extends Controller
     public function getFile(string $file_id){
         return $this->handleStorageErrors(function() use ($file_id){
             $user = Security::isOwner();
-            return response()->json($this->storageService->getFile($user->id,$file_id));
+            return response()->json($this->fileService->getFile($user->id,$file_id));
         });
     }
 
@@ -219,7 +221,8 @@ class StorageController extends Controller
     public function deleteFolder(string $folder_id){
         return $this->handleStorageErrors(function() use ($folder_id){
             $user = Security::isOwner();
-            return response()->json($this->storageService->delete($user->id,$folder_id,"folder"));
+            $folder = $this->folderService->getFolder($user->id, $folder_id);
+            return response()->json($this->folderService->moveFolderToTrash($folder));
         });
     }
 
@@ -241,7 +244,8 @@ class StorageController extends Controller
     public function deleteFile(string $file_id){
         return $this->handleStorageErrors(function() use ($file_id){
             $user = Security::isOwner();
-            return response()->json($this->storageService->delete($user->id,$file_id,"file"));
+            $file = $this->fileService->getFile($user->id, $file_id);
+            return response()->json($this->fileService->moveFileToTrash($file));
         });
     }
 
@@ -265,8 +269,8 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($folder_id){
             $user = Security::isOwner();
             return response()->json(
-                $this->storageService->restoreFolder(
-                    $this->storageService->getTrashedFolder($user->id,$folder_id)
+                $this->folderService->restoreFolder(
+                    $this->folderService->getTrashedFolder($user->id,$folder_id)
                 )
             );
         });
@@ -292,8 +296,8 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($file_id){
             $user = Security::isOwner();
             return response()->json(
-                $this->storageService->restoreFile(
-                    $this->storageService->getTrashedFile($user->id,$file_id)
+                $this->fileService->restoreFile(
+                    $this->fileService->getTrashedFile($user->id,$file_id)
                 )
             );
         });
@@ -327,10 +331,10 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
 
-            $file = $this->storageService->getFile($user->id, $file_id);
+            $file = $this->fileService->getFile($user->id, $file_id);
 
             return response()->json(
-                $this->storageService->moveFile(
+                $this->fileService->moveFile(
                     $file,
                     $request->destination_folder_id
                 )
@@ -367,13 +371,13 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($folder_id, $request){
             $user = Security::isOwner();
 
-            $folder = $this->storageService->getFolder(
+            $folder = $this->folderService->getFolder(
                 $user->id,
                 $folder_id
             );
 
             return response()->json(
-                $this->storageService->moveFolder(
+                $this->folderService->moveFolder(
                     $folder,
                     $request->destination_folder_id
                 )
@@ -409,10 +413,10 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
 
-            $file = $this->storageService->getFile($user->id, $file_id);
+            $file = $this->fileService->getFile($user->id, $file_id);
 
             return response()->json(
-                $this->storageService->renameFile($file, $request->name)
+                $this->fileService->renameFile($file, $request->name)
             );
         });
     }
@@ -445,10 +449,10 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($folder_id, $request){
             $user = Security::isOwner();
 
-            $folder = $this->storageService->getFolder($user->id, $folder_id);
+            $folder = $this->folderService->getFolder($user->id, $folder_id);
 
             return response()->json(
-                $this->storageService->renameFolder($folder, $request->name)
+                $this->folderService->renameFolder($folder, $request->name)
             );
         });
     }
@@ -468,7 +472,7 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function (){
             $user = Security::isOwner();
             return response()->json(
-                $this->storageService->deleteTrash($user->id)
+                $this->folderService->deleteTrash($user->id)
             );
         });
     }
@@ -500,8 +504,17 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function () use ($id, $req){
             $user = Security::isOwner();
             $type = $req->input("type", "folder");
+
+            if ($type === "folder") {
+                $folder = $this->folderService->getTrashedFolder($user->id, $id);
+                return response()->json(
+                    $this->folderService->deletePermanentFolder($folder)
+                );
+            }
+
+            $file = $this->fileService->getTrashedFile($user->id, $id);
             return response()->json(
-                $this->storageService->deletePermanent($user->id, $id, $type)
+                $this->fileService->deletePermanentFile($file)
             );
         });
     }
@@ -521,7 +534,7 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function (){
             $user = Security::isOwner();
             return response()->json(
-                $this->storageService->getTrash($user->id)
+                $this->folderService->getTrash($user->id)
             );
         });
     }
@@ -548,10 +561,10 @@ class StorageController extends Controller
     public function download(string $id){
         return $this->handleStorageErrors(function () use ($id){
             $user = Security::isOwner();
-            $file = $this->storageService->getFile($user->id,$id);
+            $file = $this->fileService->getFile($user->id,$id);
 
             return response()->json([
-                "url" => $this->storageService->urlDownloadFile($file)
+                "url" => $this->fileService->urlDownloadFile($file)
             ]);
         });
     }
