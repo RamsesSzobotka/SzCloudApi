@@ -4,24 +4,18 @@ namespace App\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Storage;
 use App\Models\File;
 use App\Models\Folder;
+use App\utils\MinIOHelper;
+
 class DeleteExpiredTrash implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct()
     {
-        //
     }
 
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
         $expiredFiles = File::onlyTrashed()
@@ -29,7 +23,9 @@ class DeleteExpiredTrash implements ShouldQueue
             ->get();
 
         foreach ($expiredFiles as $file) {
-            Storage::disk('minio')->delete($file->storage_path);
+            foreach ($file->versions as $version) {
+                MinIOHelper::delete($version->storage_path);
+            }
             $file->forceDelete();
         }
 

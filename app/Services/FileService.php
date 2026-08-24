@@ -11,7 +11,7 @@ use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\utils\MinIOHelper;
 use \App\utils\ExceptionCustom\StorageException;
 use Aws\S3\S3Client;
 
@@ -57,8 +57,9 @@ class FileService {
             $storageName = Str::uuid() . '.' . $extension;
             $storagePath = "users/{$user->id}/files/{$storageName}";
             $hash = hash_file('sha256', $file->getRealPath());
+            $content = file_get_contents($file->getRealPath());
 
-            Storage::disk('minio')->put($storagePath, file_get_contents($file->getRealPath()));
+            MinIOHelper::put($storagePath, $content);
 
             $fileRecord = File::create([
                 "user_id" => $user->id,
@@ -73,7 +74,7 @@ class FileService {
             ]);
 
             $this->storageUsageService->addFile($user, $fileSize);
-            $this->addFileVersion($fileRecord);
+            $this->addFileVersion($fileRecord, $content);
             $this->addFileActivity($fileRecord, 'create', null, $fileRecord->only(['original_name', 'folder_id', 'storage_name']));
 
             return $fileRecord;
@@ -102,15 +103,9 @@ class FileService {
     }
 
     public function updateFile(File $file, array $newFile, bool $logActivity = true){
-        $oldHash = $file->hash;
         $oldValues = $logActivity ? $file->only(array_keys($newFile)) : null;
 
         $result = $file->update($newFile);
-
-        if ($result && $file->hash !== $oldHash) {
-            $this->addFileVersion($file);
-            $this->deleteOldVersion($file);
-        }
 
         if ($result && $logActivity) {
             $this->addFileActivity($file, 'update', $oldValues, $newFile);
@@ -119,8 +114,52 @@ class FileService {
         return $result;
     }
 
+    public function replaceFile(File $file, UploadedFile $newFile){
+        return DB::transaction(function () use ($file, $newFile) {
+            $fileSize = $newFile->getSize();
+
+            if (!$this->storageUsageService->storageVerify($file->user, $fileSize)) {
+                throw new StorageException("No tienes suficiente espacio de almacenamiento");
+            }
+
+            $oldVersion = $file->versions()->orderBy('version', 'desc')->first();
+            $oldContent = $this->readVersionContent($file, $oldVersion);
+            $oldSize = $file->size;
+
+            $extension = $newFile->getClientOriginalExtension();
+            $storageName = Str::uuid() . '.' . $extension;
+            $userId = $file->user_id;
+            $storagePath = "users/{$userId}/files/{$storageName}";
+            $hash = hash_file('sha256', $newFile->getRealPath());
+            $content = file_get_contents($newFile->getRealPath());
+
+            MinIOHelper::put($storagePath, $content);
+
+            $file->update([
+                "storage_name" => $storageName,
+                "storage_path" => $storagePath,
+                "mime_type" => $newFile->getMimeType(),
+                "extension" => $extension,
+                "size" => $fileSize,
+                "hash" => $hash,
+            ]);
+
+            $this->addFileVersion($file, $oldContent);
+
+            $this->storageUsageService->deleteFile($file->user, $oldSize);
+            $this->storageUsageService->addFile($file->user, $fileSize);
+
+            $this->deleteOldVersion($file);
+            $this->addFileActivity($file, 'update', ["hash" => $oldContent ? hash('sha256', $oldContent) : null], ["hash" => $hash]);
+
+            return $file;
+        });
+    }
+
     public function deletePermanentFile(File $file){
-        Storage::disk('minio')->delete($file->storage_path);
+        foreach ($file->versions as $version) {
+            MinIOHelper::delete($version->storage_path);
+        }
 
         $user = User::findOrFail($file->user_id);
         $this->storageUsageService->deleteFile($user, $file->size);
@@ -223,8 +262,7 @@ class FileService {
         ]);
 
         $command = $publicClient->getCommand('GetObject', [
-            
-        'Bucket' => config('filesystems.disks.minio.bucket'),
+            'Bucket' => config('filesystems.disks.minio.bucket'),
             'Key'    => $file->storage_path,
             'ResponseContentDisposition' =>
                 'attachment; filename="' . $file->original_name . '"',
@@ -234,15 +272,24 @@ class FileService {
             $command, now()->addMinutes(30)
         )->getUri();
     }
-    
-    public function addFileVersion(File $file){
-        $lastVersion = $file->versions()->max('version') ?? 1;
+
+    public function addFileVersion(File $file, string $content){
+        $lastVersion = $file->versions()->max('version') ?? 0;
+        $newVersion = $lastVersion + 1;
+
+        $userId = $file->user_id;
+        $fileId = $file->id;
+        $ext = $file->extension;
+        $storageName = "{$fileId}_v{$newVersion}.{$ext}";
+        $storagePath = "users/{$userId}/files/{$storageName}";
+
+        MinIOHelper::put($storagePath, $content);
 
         return FileVersion::create([
-            "file_id" => $file->id,
-            "version" => $lastVersion + 1,
-            "storage_name" => $file->storage_name,
-            "storage_path" => $file->storage_path,
+            "file_id" => $fileId,
+            "version" => $newVersion,
+            "storage_name" => $storageName,
+            "storage_path" => $storagePath,
             "mime_type" => $file->mime_type,
             "size" => $file->size,
             "hash" => $file->hash,
@@ -329,45 +376,70 @@ class FileService {
 
         $oldestVersion = $versions->orderBy('version', 'asc')->first();
 
-        return $oldestVersion?->delete();
+        if ($oldestVersion) {
+            MinIOHelper::delete($oldestVersion->storage_path);
+            $oldestVersion->delete();
+        }
+
+        return true;
     }
-    
+
     public function restoreBackVersion(File $file){
-        $currentV = $file->versions()->max('version') ?? 1;
+        $currentV = $this->getCurrentVersion($file);
         $targetVersion = $file->versions()->where('version', $currentV - 1)->first();
 
         if(!$targetVersion){
             return null;
         }
 
-        return $this->updateFile($file, [
-            'storage_name' => $targetVersion->storage_name,
-            'storage_path' => $targetVersion->storage_path,
-            'mime_type' => $targetVersion->mime_type,
-            'size' => $targetVersion->size,
-            'hash' => $targetVersion->hash,
-        ], logActivity: false);
+        $restoredContent = $this->readVersionContent($file, $targetVersion);
+        $userId = $file->user_id;
+        $ext = $file->extension;
+        $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
+        $newStoragePath = "users/{$userId}/files/{$newStorageName}";
+
+        MinIOHelper::put($newStoragePath, $restoredContent);
+
+        $file->update([
+            "storage_name" => $newStorageName,
+            "storage_path" => $newStoragePath,
+            "mime_type" => $targetVersion->mime_type,
+            "size" => $targetVersion->size,
+            "hash" => $targetVersion->hash,
+        ]);
+
+        return $file;
     }
 
     public function restoreFrontVersion(File $file){
-        $currentV = $file->versions()->max('version') ?? 1;
+        $currentV = $this->getCurrentVersion($file);
         $targetVersion = $file->versions()->where('version', $currentV + 1)->first();
 
         if(!$targetVersion){
             return null;
         }
 
-        return $this->updateFile($file, [
-            'storage_name' => $targetVersion->storage_name,
-            'storage_path' => $targetVersion->storage_path,
-            'mime_type' => $targetVersion->mime_type,
-            'size' => $targetVersion->size,
-            'hash' => $targetVersion->hash,
-        ], logActivity: false);
+        $restoredContent = $this->readVersionContent($file, $targetVersion);
+        $userId = $file->user_id;
+        $ext = $file->extension;
+        $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
+        $newStoragePath = "users/{$userId}/files/{$newStorageName}";
+
+        MinIOHelper::put($newStoragePath, $restoredContent);
+
+        $file->update([
+            "storage_name" => $newStorageName,
+            "storage_path" => $newStoragePath,
+            "mime_type" => $targetVersion->mime_type,
+            "size" => $targetVersion->size,
+            "hash" => $targetVersion->hash,
+        ]);
+
+        return $file;
     }
 
     public function hasVersionsInfo(File $file): array {
-        $currentV = $file->versions()->max('version') ?? 1;
+        $currentV = $this->getCurrentVersion($file);
 
         return [
             'has_older' => $file->versions()->where('version', '<', $currentV)->exists(),
@@ -375,5 +447,14 @@ class FileService {
             'current_version' => $currentV,
             'total_versions' => $file->versions()->count(),
         ];
+    }
+
+    private function getCurrentVersion(File $file): int {
+        $match = $file->versions()->where('hash', $file->hash)->first();
+        return $match ? $match->version : ($file->versions()->max('version') ?? 1);
+    }
+
+    private function readVersionContent(File $file, FileVersion $version): string {
+        return MinIOHelper::get($version->storage_path);
     }
 }
