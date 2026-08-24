@@ -117,6 +117,41 @@ class StorageController extends Controller
         });
     }
 
+    #[OA\Put(
+        path: "/api/storage/file/{file_id}",
+        tags: ["Files"],
+        summary: "Reemplazar contenido de archivo",
+        description: "Reemplaza el contenido del archivo subiendo una nueva version. La version anterior se preserva en el historial.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["file"],
+                    properties: [
+                        new OA\Property(property: "file", type: "string", format: "binary", description: "Nuevo contenido del archivo"),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Archivo reemplazado, version anterior preservada"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function replaceFile(string $file_id, StoreFileRequest $req){
+        return $this->handleStorageErrors(function() use ($file_id, $req){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            return response()->json($this->fileService->replaceFile($file, $req->file('file')));
+        });
+    }
+
     #[OA\Get(
         path: "/api/storage/folder/content",
         tags: ["Folders"],
@@ -625,7 +660,7 @@ class StorageController extends Controller
         path: "/api/storage/file/{file_id}/versions/restore-back",
         tags: ["Files"],
         summary: "Restaurar versión anterior",
-        description: "Restaura el archivo a su versión anterior (Ctrl+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+        description: "Restaura el archivo a su versión anterior (Ctrl+Z).",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -655,7 +690,7 @@ class StorageController extends Controller
         path: "/api/storage/file/{file_id}/versions/restore-front",
         tags: ["Files"],
         summary: "Restaurar versión posterior",
-        description: "Restaura el archivo a su versión posterior (Ctrl+Shift+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+        description: "Restaura el archivo a su versión posterior (Ctrl+Shift+Z).",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
