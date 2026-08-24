@@ -424,6 +424,136 @@
                 ]
             }
         },
+        "/api/storage/file/{file_id}": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Obtener info de archivo",
+                "description": "Retorna los metadatos de un archivo específico.",
+                "operationId": "9e2e5b9f3e4ace021413ee2eb71020e8",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metadatos del archivo"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Reemplazar contenido de archivo",
+                "description": "Reemplaza el contenido del archivo subiendo una nueva version. La version anterior se preserva en el historial.",
+                "operationId": "7543208661044efbc130439df5852851",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "description": "Nuevo contenido del archivo",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Archivo reemplazado, version anterior preservada"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Eliminar archivo",
+                "description": "Envía un archivo a la papelera (soft delete).",
+                "operationId": "2ff5520d2a54b88e5db4920643af790c",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo eliminado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/storage/folder/content": {
             "get": {
                 "tags": [
@@ -556,80 +686,6 @@
                     },
                     "404": {
                         "description": "Carpeta no encontrada"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/storage/file/{file_id}": {
-            "get": {
-                "tags": [
-                    "Files"
-                ],
-                "summary": "Obtener info de archivo",
-                "description": "Retorna los metadatos de un archivo específico.",
-                "operationId": "9e2e5b9f3e4ace021413ee2eb71020e8",
-                "parameters": [
-                    {
-                        "name": "file_id",
-                        "in": "path",
-                        "description": "ID del archivo (UUID).",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Metadatos del archivo"
-                    },
-                    "401": {
-                        "description": "No autenticado"
-                    },
-                    "404": {
-                        "description": "Archivo no encontrado"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            },
-            "delete": {
-                "tags": [
-                    "Files"
-                ],
-                "summary": "Eliminar archivo",
-                "description": "Envía un archivo a la papelera (soft delete).",
-                "operationId": "2ff5520d2a54b88e5db4920643af790c",
-                "parameters": [
-                    {
-                        "name": "file_id",
-                        "in": "path",
-                        "description": "ID del archivo (UUID).",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Archivo eliminado"
-                    },
-                    "401": {
-                        "description": "No autenticado"
-                    },
-                    "404": {
-                        "description": "Archivo no encontrado"
                     }
                 },
                 "security": [
@@ -1260,7 +1316,7 @@
                     "Files"
                 ],
                 "summary": "Restaurar versión anterior",
-                "description": "Restaura el archivo a su versión anterior (Ctrl+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+                "description": "Restaura el archivo a su versión anterior (Ctrl+Z).",
                 "operationId": "d5cd5feddacc3a1483ee21899503a9d4",
                 "parameters": [
                     {
@@ -1301,7 +1357,7 @@
                     "Files"
                 ],
                 "summary": "Restaurar versión posterior",
-                "description": "Restaura el archivo a su versión posterior (Ctrl+Shift+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+                "description": "Restaura el archivo a su versión posterior (Ctrl+Shift+Z).",
                 "operationId": "ae84bdd333d5a74702477822c309d158",
                 "parameters": [
                     {

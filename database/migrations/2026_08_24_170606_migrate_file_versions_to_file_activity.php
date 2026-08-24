@@ -10,7 +10,7 @@ return new class extends Migration
         $versions = DB::table('file_versions')->orderBy('version', 'asc')->get();
 
         foreach ($versions as $v) {
-            DB::table('file_activity')->insert([
+            DB::table('file_activities')->insert([
                 'id' => \Illuminate\Support\Str::uuid(),
                 'file_id' => $v->file_id,
                 'action' => 'content_change',
@@ -30,6 +30,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('file_activity')->where('action', 'content_change')->delete();
+        DB::table('file_activities')->where('action', 'content_change')->delete();
     }
 };

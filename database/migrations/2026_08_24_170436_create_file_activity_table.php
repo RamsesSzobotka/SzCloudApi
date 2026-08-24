@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('file_activity', function (Blueprint $table) {
+        Schema::create('file_activities', function (Blueprint $table) {
             $table->uuid("id")->primary();
             $table->foreignUuid("file_id")->constrained("files")->cascadeOnDelete();
             $table->string("action"); // create, update
@@ -23,6 +23,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('file_activity');
+        Schema::dropIfExists('file_activities');
     }
 };
