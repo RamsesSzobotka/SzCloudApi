@@ -3,10 +3,6 @@
     "info": {
         "title": "SzCloudApi",
         "description": "API para almacenamiento en la nube — gestión de archivos, carpetas y papelera.",
-        "contact": {
-            "name": "SzCloud Support",
-            "email": "support@szcloud.com"
-        },
         "version": "1.0.0"
     },
     "servers": [
@@ -1142,6 +1138,309 @@
                                 }
                             }
                         }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/versions": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Obtener versiones de un archivo",
+                "description": "Retorna la lista de versiones de un archivo ordenadas de la más reciente a la más antigua.",
+                "operationId": "91fd56b53cc1d0a302740598d2715e21",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de versiones"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/versions/check": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Verificar disponibilidad de versiones",
+                "description": "Indica si el archivo tiene versiones anteriores o posteriores a la actual.",
+                "operationId": "3d31866afe2dd0aee1c69605a47110d5",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Info de versiones disponibles",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "has_older": {
+                                            "description": "Si existen versiones anteriores",
+                                            "type": "boolean"
+                                        },
+                                        "has_newer": {
+                                            "description": "Si existen versiones posteriores",
+                                            "type": "boolean"
+                                        },
+                                        "current_version": {
+                                            "description": "Número de versión actual",
+                                            "type": "integer"
+                                        },
+                                        "total_versions": {
+                                            "description": "Total de versiones almacenadas",
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/versions/restore-back": {
+            "post": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Restaurar versión anterior",
+                "description": "Restaura el archivo a su versión anterior (Ctrl+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+                "operationId": "d5cd5feddacc3a1483ee21899503a9d4",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo restaurado a versión anterior"
+                    },
+                    "400": {
+                        "description": "No hay versión anterior disponible"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/versions/restore-front": {
+            "post": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Restaurar versión posterior",
+                "description": "Restaura el archivo a su versión posterior (Ctrl+Shift+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+                "operationId": "ae84bdd333d5a74702477822c309d158",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo restaurado a versión posterior"
+                    },
+                    "400": {
+                        "description": "No hay versión posterior disponible"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/activity": {
+            "get": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Historial de actividad del archivo",
+                "description": "Retorna el registro de todos los cambios realizados al archivo (renombres, movimientos, cambios de contenido, etc).",
+                "operationId": "74d47d126c7995341d47e696d3ed5ba7",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Registro de actividad"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/activity/restore-back": {
+            "post": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Deshacer última acción",
+                "description": "Deshace el último cambio registrado en la actividad (renombre, movimiento, etc). Equivale a Ctrl+Z sobre acciones.",
+                "operationId": "fb0a995175251dba87a653c658910829",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Acción deshecha"
+                    },
+                    "400": {
+                        "description": "No hay acción para deshacer"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/file/{file_id}/activity/restore-front": {
+            "post": {
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Rehacer última acción deshecha",
+                "description": "Rehace el último cambio que fue deshecho. Equivale a Ctrl+Shift+Z sobre acciones.",
+                "operationId": "92c8ba7986b61244a8ffb5dc35d6768f",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Acción rehecha"
+                    },
+                    "400": {
+                        "description": "No hay acción para rehacer"
                     },
                     "401": {
                         "description": "No autenticado"
