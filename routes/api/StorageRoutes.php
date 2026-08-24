@@ -28,6 +28,13 @@ Route::prefix("/storage")->middleware("auth:api")->group(function (){
         Route::delete("/{file_id}", [StorageController::class, "deleteFile"]);
         Route::post("/{file_id}/restore", [StorageController::class, "restoreFile"]);
         Route::get("/{file_id}/download",[StorageController::class, "download"]);
+        Route::get("/{file_id}/versions/check", [StorageController::class, "checkVersions"]);
+        Route::get("/{file_id}/versions", [StorageController::class, "getVersions"]);
+        Route::post("/{file_id}/versions/restore-back", [StorageController::class, "restoreBackVersion"]);
+        Route::post("/{file_id}/versions/restore-front", [StorageController::class, "restoreFrontVersion"]);
+        Route::get("/{file_id}/activity", [StorageController::class, "getActivity"]);
+        Route::post("/{file_id}/activity/restore-back", [StorageController::class, "restoreBackActivity"]);
+        Route::post("/{file_id}/activity/restore-front", [StorageController::class, "restoreFrontActivity"]);
     });
 
     Route::prefix("/trash")->group(function (){

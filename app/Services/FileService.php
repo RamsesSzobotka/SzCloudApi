@@ -3,6 +3,8 @@ namespace App\Services;
 
 use App\Models\Folder;
 use App\Models\File;
+use App\Models\FileVersion;
+use App\Models\FileActivity;
 use App\Models\User;
 use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
@@ -71,6 +73,8 @@ class FileService {
             ]);
 
             $this->storageUsageService->addFile($user, $fileSize);
+            $this->addFileVersion($fileRecord);
+            $this->addFileActivity($fileRecord, 'create', null, $fileRecord->only(['original_name', 'folder_id', 'storage_name']));
 
             return $fileRecord;
         });
@@ -95,6 +99,24 @@ class FileService {
 
             return $file->restore();
         });
+    }
+
+    public function updateFile(File $file, array $newFile, bool $logActivity = true){
+        $oldHash = $file->hash;
+        $oldValues = $logActivity ? $file->only(array_keys($newFile)) : null;
+
+        $result = $file->update($newFile);
+
+        if ($result && $file->hash !== $oldHash) {
+            $this->addFileVersion($file);
+            $this->deleteOldVersion($file);
+        }
+
+        if ($result && $logActivity) {
+            $this->addFileActivity($file, 'update', $oldValues, $newFile);
+        }
+
+        return $result;
     }
 
     public function deletePermanentFile(File $file){
@@ -177,7 +199,7 @@ class FileService {
             );
         }
 
-        return $file->update($updates);
+        return $this->updateFile($file, $updates);
     }
 
     public function renameFile(File $file, string $newName){
@@ -185,7 +207,7 @@ class FileService {
             $file->user_id, $file->folder_id, $newName, $file->extension, $file->id
         );
 
-        return $file->update(["original_name" => $available]);
+        return $this->updateFile($file, ["original_name" => $available]);
     }
 
     public function urlDownloadFile(File $file){
@@ -213,7 +235,145 @@ class FileService {
         )->getUri();
     }
     
-    //en desarrollo
-    public function addFileVersion(){}
+    public function addFileVersion(File $file){
+        $lastVersion = $file->versions()->max('version') ?? 1;
+
+        return FileVersion::create([
+            "file_id" => $file->id,
+            "version" => $lastVersion + 1,
+            "storage_name" => $file->storage_name,
+            "storage_path" => $file->storage_path,
+            "mime_type" => $file->mime_type,
+            "size" => $file->size,
+            "hash" => $file->hash,
+        ]);
+    }
+
+    public function addFileActivity(File $file, string $action, ?array $oldValues, ?array $newValues){
+        $activity = FileActivity::create([
+            "file_id" => $file->id,
+            "action" => $action,
+            "old_values" => $oldValues,
+            "new_values" => $newValues,
+        ]);
+
+        $this->deleteOldActivity($file);
+
+        return $activity;
+    }
+
+    public function deleteOldActivity(File $file){
+        $count = $file->activities()->where('is_undone', false)->count();
+
+        if ($count <= 3) {
+            return false;
+        }
+
+        return $file->activities()
+            ->where('is_undone', false)
+            ->orderBy('created_at', 'asc')
+            ->first()
+            ?->delete();
+    }
+
+    public function getActivityLog(File $file){
+        return $file->activities()->orderBy('created_at', 'desc')->get();
+    }
+
+    public function restoreBackActivity(File $file){
+        $activity = $file->activities()
+            ->where('is_undone', false)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$activity || !$activity->old_values) {
+            return null;
+        }
+
+        $file->update($activity->old_values);
+        $activity->update(['is_undone' => true]);
+
+        return $file;
+    }
+
+    public function restoreFrontActivity(File $file){
+        $activity = $file->activities()
+            ->where('is_undone', true)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$activity || !$activity->new_values) {
+            return null;
+        }
+
+        $file->update($activity->new_values);
+        $activity->update(['is_undone' => false]);
+
+        return $file;
+    }
+
+    public function getVersionsInfo(File $file){
+        $versions = $file->versions()->orderBy('version', 'desc')->get();
+        return [
+            "versions" => $versions,
+            "count" => $versions->count()
+        ];
+    }
+
+    public function deleteOldVersion(File $file){
+        $versions = $file->versions();
+
+        if ($versions->count() <= 3) {
+            return false;
+        }
+
+        $oldestVersion = $versions->orderBy('version', 'asc')->first();
+
+        return $oldestVersion?->delete();
+    }
     
+    public function restoreBackVersion(File $file){
+        $currentV = $file->versions()->max('version') ?? 1;
+        $targetVersion = $file->versions()->where('version', $currentV - 1)->first();
+
+        if(!$targetVersion){
+            return null;
+        }
+
+        return $this->updateFile($file, [
+            'storage_name' => $targetVersion->storage_name,
+            'storage_path' => $targetVersion->storage_path,
+            'mime_type' => $targetVersion->mime_type,
+            'size' => $targetVersion->size,
+            'hash' => $targetVersion->hash,
+        ], logActivity: false);
+    }
+
+    public function restoreFrontVersion(File $file){
+        $currentV = $file->versions()->max('version') ?? 1;
+        $targetVersion = $file->versions()->where('version', $currentV + 1)->first();
+
+        if(!$targetVersion){
+            return null;
+        }
+
+        return $this->updateFile($file, [
+            'storage_name' => $targetVersion->storage_name,
+            'storage_path' => $targetVersion->storage_path,
+            'mime_type' => $targetVersion->mime_type,
+            'size' => $targetVersion->size,
+            'hash' => $targetVersion->hash,
+        ], logActivity: false);
+    }
+
+    public function hasVersionsInfo(File $file): array {
+        $currentV = $file->versions()->max('version') ?? 1;
+
+        return [
+            'has_older' => $file->versions()->where('version', '<', $currentV)->exists(),
+            'has_newer' => $file->versions()->where('version', '>', $currentV)->exists(),
+            'current_version' => $currentV,
+            'total_versions' => $file->versions()->count(),
+        ];
+    }
 }

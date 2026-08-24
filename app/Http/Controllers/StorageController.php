@@ -569,6 +569,202 @@ class StorageController extends Controller
     }
 
     #[OA\Get(
+        path: "/api/storage/file/{file_id}/versions",
+        tags: ["Files"],
+        summary: "Obtener versiones de un archivo",
+        description: "Retorna la lista de versiones de un archivo ordenadas de la más reciente a la más antigua.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Lista de versiones"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function getVersions(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            return response()->json($this->fileService->getVersionsInfo($file));
+        });
+    }
+
+    #[OA\Get(
+        path: "/api/storage/file/{file_id}/versions/check",
+        tags: ["Files"],
+        summary: "Verificar disponibilidad de versiones",
+        description: "Indica si el archivo tiene versiones anteriores o posteriores a la actual.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Info de versiones disponibles", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "has_older", type: "boolean", description: "Si existen versiones anteriores"),
+                    new OA\Property(property: "has_newer", type: "boolean", description: "Si existen versiones posteriores"),
+                    new OA\Property(property: "current_version", type: "integer", description: "Número de versión actual"),
+                    new OA\Property(property: "total_versions", type: "integer", description: "Total de versiones almacenadas"),
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function checkVersions(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            return response()->json($this->fileService->hasVersionsInfo($file));
+        });
+    }
+
+    #[OA\Post(
+        path: "/api/storage/file/{file_id}/versions/restore-back",
+        tags: ["Files"],
+        summary: "Restaurar versión anterior",
+        description: "Restaura el archivo a su versión anterior (Ctrl+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Archivo restaurado a versión anterior"),
+            new OA\Response(response: 400, description: "No hay versión anterior disponible"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function restoreBackVersion(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            $result = $this->fileService->restoreBackVersion($file);
+
+            if(!$result){
+                abort(400, "No hay versión anterior disponible");
+            }
+
+            return response()->json($file);
+        });
+    }
+
+    #[OA\Post(
+        path: "/api/storage/file/{file_id}/versions/restore-front",
+        tags: ["Files"],
+        summary: "Restaurar versión posterior",
+        description: "Restaura el archivo a su versión posterior (Ctrl+Shift+Z). Guarda el estado actual como nueva versión antes de restaurar.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Archivo restaurado a versión posterior"),
+            new OA\Response(response: 400, description: "No hay versión posterior disponible"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function restoreFrontVersion(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            $result = $this->fileService->restoreFrontVersion($file);
+
+            if(!$result){
+                abort(400, "No hay versión posterior disponible");
+            }
+
+            return response()->json($file);
+        });
+    }
+
+    #[OA\Get(
+        path: "/api/storage/file/{file_id}/activity",
+        tags: ["Files"],
+        summary: "Historial de actividad del archivo",
+        description: "Retorna el registro de todos los cambios realizados al archivo (renombres, movimientos, cambios de contenido, etc).",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Registro de actividad"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function getActivity(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            return response()->json($this->fileService->getActivityLog($file));
+        });
+    }
+
+    #[OA\Post(
+        path: "/api/storage/file/{file_id}/activity/restore-back",
+        tags: ["Files"],
+        summary: "Deshacer última acción",
+        description: "Deshace el último cambio registrado en la actividad (renombre, movimiento, etc). Equivale a Ctrl+Z sobre acciones.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Acción deshecha"),
+            new OA\Response(response: 400, description: "No hay acción para deshacer"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function restoreBackActivity(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            $result = $this->fileService->restoreBackActivity($file);
+
+            if(!$result){
+                abort(400, "No hay acción para deshacer");
+            }
+
+            return response()->json($file);
+        });
+    }
+
+    #[OA\Post(
+        path: "/api/storage/file/{file_id}/activity/restore-front",
+        tags: ["Files"],
+        summary: "Rehacer última acción deshecha",
+        description: "Rehace el último cambio que fue deshecho. Equivale a Ctrl+Shift+Z sobre acciones.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Acción rehecha"),
+            new OA\Response(response: 400, description: "No hay acción para rehacer"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Archivo no encontrado"),
+        ]
+    )]
+    public function restoreFrontActivity(string $file_id){
+        return $this->handleStorageErrors(function() use ($file_id){
+            $user = Security::isOwner();
+            $file = $this->fileService->getFile($user->id, $file_id);
+            $result = $this->fileService->restoreFrontActivity($file);
+
+            if(!$result){
+                abort(400, "No hay acción para rehacer");
+            }
+
+            return response()->json($file);
+        });
+    }
+
+    #[OA\Get(
         path: "/api/storage/folder/check-name",
         tags: ["Folders"],
         summary: "Verificar si existe una carpeta con el mismo nombre",

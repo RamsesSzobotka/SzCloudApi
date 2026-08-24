@@ -48,6 +48,10 @@ class File extends Model
         return $this->hasMany(FileVersion::class);
     }
 
+    public function activities(){
+        return $this->hasMany(FileActivity::class);
+    }
+
     public function permissions(){
         return $this->hasMany(FilePermission::class);
     }
