@@ -73,10 +73,7 @@ class AuthController extends Controller
             ]);
 
             return Security::withAuthCookies(
-                response()->json([
-                    'message' => 'Sesión iniciada correctamente',
-                    'access_token' => $token
-                ]),
+                response()->json(),
                 $token,
                 $refreshToken
             );
