@@ -77,14 +77,14 @@ class StorageService {
     public function deletePermanent(string $userId, string $id, string $type = "folder"){
         if ($type === 'folder') {
             $folder = $this->folderService->getTrashedFolder($userId, $id);
-            return $this->folderService->deletePermanentFolder($folder);
+            return $this->folderService->deletePermanentFolderWithTransaction($folder);
         }
         $file = $this->fileService->getTrashedFile($userId, $id);
         return $this->fileService->deletePermanentFile($file);
     }
 
     public function deletePermanentFolder(Folder $folder){
-        return $this->folderService->deletePermanentFolder($folder);
+        return $this->folderService->deletePermanentFolderWithTransaction($folder);
     }
 
     public function deletePermanentFile(File $file){

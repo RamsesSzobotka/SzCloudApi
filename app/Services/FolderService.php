@@ -80,20 +80,25 @@ class FolderService {
     }
 
     public function moveFolderToTrash(Folder $folder){
+        return DB::transaction(function () use ($folder) {
+            $this->moveFolderToTrashRecursive($folder);
+            return true;
+        });
+    }
+
+    private function moveFolderToTrashRecursive(Folder $folder): void {
         $children = $folder->children()->get();
         $files = $folder->files()->get();
 
         $folder->delete();
 
         foreach ($children as $child) {
-            $this->moveFolderToTrash($child);
+            $this->moveFolderToTrashRecursive($child);
         }
 
         foreach ($files as $file) {
             app(FileService::class)->moveFileToTrash($file);
         }
-
-        return true;
     }
 
     public function restoreFolder(Folder $folder){
@@ -145,7 +150,7 @@ class FolderService {
             foreach($folderIds as $folderId){
                 $folder = Folder::withTrashed()->where("id",$folderId)->first();
                 if($folder){
-                    $this->deletePermanentFolder($folder);
+                    $this->deletePermanentFolderRecursive($folder);
                 }
             }
 
@@ -161,21 +166,26 @@ class FolderService {
         });
     }
 
-    public function deletePermanentFolder(Folder $folder){
+    public function deletePermanentFolderWithTransaction(Folder $folder){
+        return DB::transaction(function () use ($folder) {
+            $this->deletePermanentFolderRecursive($folder);
+            return true;
+        });
+    }
+
+    private function deletePermanentFolderRecursive(Folder $folder): void {
         $children = $folder->childrenWithTrashed()->get();
         $files = File::withTrashed()->where("folder_id", $folder->id)->get();
 
         $folder->forceDelete();
 
         foreach ($children as $child) {
-            $this->deletePermanentFolder($child);
+            $this->deletePermanentFolderRecursive($child);
         }
 
         foreach ($files as $file) {
             app(FileService::class)->deletePermanentFile($file);
         }
-
-        return true;
     }
 
     public function getFolderContentCount(Folder $folder): int {
@@ -240,26 +250,28 @@ class FolderService {
             }
         }
 
-        $conflictFolder = Folder::where("user_id", $folder->user_id)
-            ->where("parent_id", $folderId)
-            ->where("name", $folder->name)
-            ->where("id", "!=", $folder->id)
-            ->first();
+        return DB::transaction(function () use ($folder, $folderId) {
+            $conflictFolder = Folder::where("user_id", $folder->user_id)
+                ->where("parent_id", $folderId)
+                ->where("name", $folder->name)
+                ->where("id", "!=", $folder->id)
+                ->first();
 
-        if ($conflictFolder){
-            $sourceCount = $this->getFolderContentCount($folder);
-            $targetCount = $this->getFolderContentCount($conflictFolder);
+            if ($conflictFolder){
+                $sourceCount = $this->getFolderContentCount($folder);
+                $targetCount = $this->getFolderContentCount($conflictFolder);
 
-            if ($sourceCount <= $targetCount) {
-                $this->mergeFolders($folder, $conflictFolder);
-                return true;
-            } else {
-                $this->mergeFolders($conflictFolder, $folder);
-                return $folder->update(["parent_id" => $folderId]);
+                if ($sourceCount <= $targetCount) {
+                    $this->mergeFolders($folder, $conflictFolder);
+                    return true;
+                } else {
+                    $this->mergeFolders($conflictFolder, $folder);
+                    return $folder->update(["parent_id" => $folderId]);
+                }
             }
-        }
 
-        return $folder->update(["parent_id" => $folderId]);
+            return $folder->update(["parent_id" => $folderId]);
+        });
     }
 
     private function isDescendant(Folder $folder, string $destinationFolderId): bool{
@@ -285,25 +297,27 @@ class FolderService {
     }
 
     public function renameFolder(Folder $folder, string $newName){
-        $conflict = Folder::where("user_id", $folder->user_id)
-                    ->where("parent_id", $folder->parent_id)
-                    ->where("name", $newName)
-                    ->where("id", "!=", $folder->id)
-                    ->first();
+        return DB::transaction(function () use ($folder, $newName) {
+            $conflict = Folder::where("user_id", $folder->user_id)
+                        ->where("parent_id", $folder->parent_id)
+                        ->where("name", $newName)
+                        ->where("id", "!=", $folder->id)
+                        ->first();
 
-        if($conflict){
-            $sourceCount = $this->getFolderContentCount($folder);
-            $targetCount = $this->getFolderContentCount($conflict);
+            if($conflict){
+                $sourceCount = $this->getFolderContentCount($folder);
+                $targetCount = $this->getFolderContentCount($conflict);
 
-            if ($sourceCount <= $targetCount) {
-                $this->mergeFolders($folder, $conflict);
-                return true;
-            } else {
-                $this->mergeFolders($conflict, $folder);
-                return $folder->update(["name" => $newName]);
+                if ($sourceCount <= $targetCount) {
+                    $this->mergeFolders($folder, $conflict);
+                    return true;
+                } else {
+                    $this->mergeFolders($conflict, $folder);
+                    return $folder->update(["name" => $newName]);
+                }
             }
-        }
 
-        return $folder->update(["name" => $newName]);
+            return $folder->update(["name" => $newName]);
+        });
     }
 }

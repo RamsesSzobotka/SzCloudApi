@@ -249,30 +249,6 @@ class FileService {
         return $this->updateFile($file, ["original_name" => $available]);
     }
 
-    public function urlDownloadFile(File $file){
-        $publicClient = new S3Client([
-            'credentials' => [
-                'key'    => config('filesystems.disks.minio.key'),
-                'secret' => config('filesystems.disks.minio.secret'),
-            ],
-            'region'  => config('filesystems.disks.minio.region'),
-            'endpoint' => env('MINIO_PUBLIC_ENDPOINT', 'http://localhost:9000'),
-            'use_path_style_endpoint' => true,
-            'version' => 'latest',
-        ]);
-
-        $command = $publicClient->getCommand('GetObject', [
-            'Bucket' => config('filesystems.disks.minio.bucket'),
-            'Key'    => $file->storage_path,
-            'ResponseContentDisposition' =>
-                'attachment; filename="' . $file->original_name . '"',
-        ]);
-
-        return (string) $publicClient->createPresignedRequest(
-            $command, now()->addMinutes(30)
-        )->getUri();
-    }
-
     public function addFileVersion(File $file, string $content){
         $lastVersion = $file->versions()->max('version') ?? 0;
         $newVersion = $lastVersion + 1;
@@ -328,35 +304,39 @@ class FileService {
     }
 
     public function restoreBackActivity(File $file){
-        $activity = $file->activities()
-            ->where('is_undone', false)
-            ->orderBy('created_at', 'desc')
-            ->first();
+        return DB::transaction(function () use ($file) {
+            $activity = $file->activities()
+                ->where('is_undone', false)
+                ->orderBy('created_at', 'desc')
+                ->first();
 
-        if (!$activity || !$activity->old_values) {
-            return null;
-        }
+            if (!$activity || !$activity->old_values) {
+                return null;
+            }
 
-        $file->update($activity->old_values);
-        $activity->update(['is_undone' => true]);
+            $file->update($activity->old_values);
+            $activity->update(['is_undone' => true]);
 
-        return $file;
+            return $file;
+        });
     }
 
     public function restoreFrontActivity(File $file){
-        $activity = $file->activities()
-            ->where('is_undone', true)
-            ->orderBy('created_at', 'desc')
-            ->first();
+        return DB::transaction(function () use ($file) {
+            $activity = $file->activities()
+                ->where('is_undone', true)
+                ->orderBy('created_at', 'desc')
+                ->first();
 
-        if (!$activity || !$activity->new_values) {
-            return null;
-        }
+            if (!$activity || !$activity->new_values) {
+                return null;
+            }
 
-        $file->update($activity->new_values);
-        $activity->update(['is_undone' => false]);
+            $file->update($activity->new_values);
+            $activity->update(['is_undone' => false]);
 
-        return $file;
+            return $file;
+        });
     }
 
     public function getVersionsInfo(File $file){
@@ -385,57 +365,61 @@ class FileService {
     }
 
     public function restoreBackVersion(File $file){
-        $currentV = $this->getCurrentVersion($file);
-        $targetVersion = $file->versions()->where('version', $currentV - 1)->first();
+        return DB::transaction(function () use ($file) {
+            $currentV = $this->getCurrentVersion($file);
+            $targetVersion = $file->versions()->where('version', $currentV - 1)->first();
 
-        if(!$targetVersion){
-            return null;
-        }
+            if(!$targetVersion){
+                return null;
+            }
 
-        $restoredContent = $this->readVersionContent($file, $targetVersion);
-        $userId = $file->user_id;
-        $ext = $file->extension;
-        $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
-        $newStoragePath = "users/{$userId}/files/{$newStorageName}";
+            $restoredContent = $this->readVersionContent($file, $targetVersion);
+            $userId = $file->user_id;
+            $ext = $file->extension;
+            $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
+            $newStoragePath = "users/{$userId}/files/{$newStorageName}";
 
-        MinIOHelper::put($newStoragePath, $restoredContent);
+            MinIOHelper::put($newStoragePath, $restoredContent);
 
-        $file->update([
-            "storage_name" => $newStorageName,
-            "storage_path" => $newStoragePath,
-            "mime_type" => $targetVersion->mime_type,
-            "size" => $targetVersion->size,
-            "hash" => $targetVersion->hash,
-        ]);
+            $file->update([
+                "storage_name" => $newStorageName,
+                "storage_path" => $newStoragePath,
+                "mime_type" => $targetVersion->mime_type,
+                "size" => $targetVersion->size,
+                "hash" => $targetVersion->hash,
+            ]);
 
-        return $file;
+            return $file;
+        });
     }
 
     public function restoreFrontVersion(File $file){
-        $currentV = $this->getCurrentVersion($file);
-        $targetVersion = $file->versions()->where('version', $currentV + 1)->first();
+        return DB::transaction(function () use ($file) {
+            $currentV = $this->getCurrentVersion($file);
+            $targetVersion = $file->versions()->where('version', $currentV + 1)->first();
 
-        if(!$targetVersion){
-            return null;
-        }
+            if(!$targetVersion){
+                return null;
+            }
 
-        $restoredContent = $this->readVersionContent($file, $targetVersion);
-        $userId = $file->user_id;
-        $ext = $file->extension;
-        $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
-        $newStoragePath = "users/{$userId}/files/{$newStorageName}";
+            $restoredContent = $this->readVersionContent($file, $targetVersion);
+            $userId = $file->user_id;
+            $ext = $file->extension;
+            $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
+            $newStoragePath = "users/{$userId}/files/{$newStorageName}";
 
-        MinIOHelper::put($newStoragePath, $restoredContent);
+            MinIOHelper::put($newStoragePath, $restoredContent);
 
-        $file->update([
-            "storage_name" => $newStorageName,
-            "storage_path" => $newStoragePath,
-            "mime_type" => $targetVersion->mime_type,
-            "size" => $targetVersion->size,
-            "hash" => $targetVersion->hash,
-        ]);
+            $file->update([
+                "storage_name" => $newStorageName,
+                "storage_path" => $newStoragePath,
+                "mime_type" => $targetVersion->mime_type,
+                "size" => $targetVersion->size,
+                "hash" => $targetVersion->hash,
+            ]);
 
-        return $file;
+            return $file;
+        });
     }
 
     public function hasVersionsInfo(File $file): array {
