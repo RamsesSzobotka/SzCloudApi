@@ -17,6 +17,7 @@ use App\utils\ExceptionCustom\CarpetaCicloException;
 use App\Services\FileService;
 use App\Services\FolderService;
 use App\Services\StorageUsageService;
+use App\utils\MinIOHelper;
 use App\utils\Security;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
@@ -542,7 +543,7 @@ class StorageController extends Controller
             if ($type === "folder") {
                 $folder = $this->folderService->getTrashedFolder($user->id, $id);
                 return response()->json(
-                    $this->folderService->deletePermanentFolder($folder)
+                    $this->folderService->deletePermanentFolderWithTransaction($folder)
                 );
             }
 
@@ -598,7 +599,7 @@ class StorageController extends Controller
             $file = $this->fileService->getFile($user->id,$id);
 
             return response()->json([
-                "url" => $this->fileService->urlDownloadFile($file)
+                "url" => MinIOHelper::urlDownloadFile($file)
             ]);
         });
     }
