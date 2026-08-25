@@ -40,4 +40,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 401);
             }
         });
+
+        $exceptions->renderable(function (Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e,
+            Request $request
+        ) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Not Found',
+                ], 404);
+            }
+        });
     })->create();
