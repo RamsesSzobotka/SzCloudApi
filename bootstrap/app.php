@@ -13,10 +13,31 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('api/*')) {
+                return null; // Don't redirect API routes
+            }
+            return route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        $exceptions->renderable(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+        });
+
+        $exceptions->renderable(function (\Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $e->getMessage() ?: 'Unauthenticated.',
+                ], 401);
+            }
+        });
     })->create();

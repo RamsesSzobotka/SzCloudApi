@@ -67,6 +67,7 @@ return [
             'region' => 'us-east-1',
             'bucket' => env('MINIO_BUCKET', 'szcloud'),
             'endpoint' => env('MINIO_ENDPOINT', 'http://minio:9000'),
+            'public_endpoint' => env('MINIO_PUBLIC_ENDPOINT', env('MINIO_ENDPOINT', 'http://minio:9000')),
             'use_path_style_endpoint' => true,
             'throw' => true,
             'report' => false,
