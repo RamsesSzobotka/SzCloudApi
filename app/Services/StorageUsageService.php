@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Expansion;
 use App\Models\User;
 use App\Models\UserExpansion;
+use Illuminate\Support\Facades\DB;
 
 class StorageUsageService
 {
@@ -41,17 +42,19 @@ class StorageUsageService
 
     public function applyExpansion(User $user, Expansion $expansion): bool
     {
-        $userExpansion = UserExpansion::create([
-            "user_id" => $user->id,
-            "expansion_id" => $expansion->id,
-        ]);
+        return DB::transaction(function () use ($user, $expansion) {
+            $userExpansion = UserExpansion::create([
+                "user_id" => $user->id,
+                "expansion_id" => $expansion->id,
+            ]);
 
-        if (!$userExpansion) {
-            return false;
-        }
+            if (!$userExpansion) {
+                return false;
+            }
 
-        return $user->update([
-            "storage_limit" => $user->storage_limit + $expansion->storage_bytes,
-        ]);
+            return $user->update([
+                "storage_limit" => $user->storage_limit + $expansion->storage_bytes,
+            ]);
+        });
     }
 }
