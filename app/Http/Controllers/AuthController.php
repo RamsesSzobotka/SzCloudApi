@@ -21,6 +21,17 @@ class AuthController extends Controller
     )
     {}
 
+    private function handleAuthErrors(callable $action)
+    {
+        try {
+            return $action();
+        } catch (DuplicateException $e) {
+            abort(409, $e->getMessage());
+        } catch (Exception $e) {
+            HttpError::InternalError($e);
+        }
+    }
+
     // ─── Login ────────────────────────────────────────────────────
 
     #[OA\Post(
@@ -53,7 +64,7 @@ class AuthController extends Controller
     )]
     public function login(LoginRequest $req)
     {
-        try {
+        return $this->handleAuthErrors(function () use ($req) {
             $credentials = $req->validated();
 
             if (!$token = auth("api")->attempt($credentials)) {
@@ -77,10 +88,7 @@ class AuthController extends Controller
                 $token,
                 $refreshToken
             );
-
-        } catch (Exception $e) {
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     // ─── Refresh ──────────────────────────────────────────────────
@@ -105,7 +113,7 @@ class AuthController extends Controller
     )]
     public function refreshToken()
     {
-        try {
+        return $this->handleAuthErrors(function () {
             $refreshToken = request()->cookie(Security::REFRESH_TOKEN);
 
             if (!$refreshToken) {
@@ -150,10 +158,7 @@ class AuthController extends Controller
                 $newAccessToken,
                 $newRefreshToken
             );
-
-        } catch (Exception $e) {
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     // ─── Logout ───────────────────────────────────────────────────
@@ -171,7 +176,7 @@ class AuthController extends Controller
     )]
     public function logout()
     {
-        try {
+        return $this->handleAuthErrors(function () {
             $user = auth("api")->user();
 
             if ($user) {
@@ -185,10 +190,7 @@ class AuthController extends Controller
             return Security::clearAuthCookies(
                 response()->json(['message' => 'Sesión cerrada'])
             );
-
-        } catch (Exception $e) {
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     // ─── Register ─────────────────────────────────────────────────
@@ -226,19 +228,14 @@ class AuthController extends Controller
     )]
     public function register(RegisterRequest $req)
     {
-        try {
+        return $this->handleAuthErrors(function () use ($req) {
             $newUser = $this->userService->add($req->validated());
 
             return response()->json([
                 'message' => 'Usuario registrado correctamente.',
                 'user' => $newUser,
             ], 201);
-
-        } catch (DuplicateException $e) {
-            abort(409, "El usuario ya se encuentra registrado");
-        } catch (Exception $e) {
-            HttpError::InternalError($e);
-        }
+        });
     }
 
     // ─── Me ───────────────────────────────────────────────────────
@@ -250,27 +247,15 @@ class AuthController extends Controller
         description: "Retorna los datos del usuario autenticado.",
         security: [["bearerAuth" => []]],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: "Datos del usuario",
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: "id", type: "integer", example: 1),
-                        new OA\Property(property: "name", type: "string", example: "John Doe"),
-                        new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com"),
-                    ]
-                )
-            ),
+            new OA\Response(response: 200, description: "Datos del usuario"),
             new OA\Response(response: 401, description: "No autenticado"),
             new OA\Response(response: 404, description: "Usuario no encontrado"),
         ]
     )]
     public function getMe()
     {
-        try {
+        return $this->handleAuthErrors(function () {
             return response()->json(auth('api')->user());
-        } catch (Exception $e) {
-            HttpError::InternalError($e);
-        }
+        });
     }
 }

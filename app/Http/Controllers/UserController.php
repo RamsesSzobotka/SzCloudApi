@@ -7,7 +7,6 @@ use App\Http\Requests\User\UpdateUserRequest;
 use App\Services\UserService;
 use App\utils\HttpError;
 use App\utils\Security;
-use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use OpenApi\Attributes as OA;
 
@@ -17,14 +16,21 @@ class UserController extends Controller
         private UserService $userService
     ){}
 
-    public function getUser(string $id){
-        try{
-            return response()->json($this->userService->getById($id));
-        }catch(ModelNotFoundException $e){
-            return abort(404,"Usuario no encontrado")     ;   
-        }catch(Exception $e){
-            return abort(500,"Error interno del servidor");
+    private function handleUserErrors(callable $action)
+    {
+        try {
+            return $action();
+        } catch (ModelNotFoundException $e) {
+            abort(404, 'Usuario no encontrado');
+        } catch (\Exception $e) {
+            HttpError::InternalError($e);
         }
+    }
+
+    public function getUser(string $id){
+        return $this->handleUserErrors(function () use ($id) {
+            return response()->json($this->userService->getById($id));
+        });
     }
 
     #[OA\Patch(
@@ -53,12 +59,10 @@ class UserController extends Controller
         ]
     )]
     public function patchPassword(UpdatePasswordRequest $req){
-        try{
+        return $this->handleUserErrors(function () use ($req) {
             $user = Security::isOwner();
-            return response()->json($this->userService->updatePass($user,$req->password,$req->newPassword));
-        }catch(Exception $e){
-            HttpError::InternalError($e); 
-        }
+            return response()->json($this->userService->updatePass($user, $req->password, $req->newPassword));
+        });
     }
 
     #[OA\Put(
@@ -87,12 +91,10 @@ class UserController extends Controller
         ]
     )]
     public function putUser(UpdateUserRequest $req){
-        try{
+        return $this->handleUserErrors(function () use ($req) {
             $user = Security::isOwner();
-            return response()->json($this->userService->update($user,$req->validated()));
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+            return response()->json($this->userService->update($user, $req->validated()));
+        });
     }
 
     #[OA\Delete(
@@ -107,11 +109,9 @@ class UserController extends Controller
         ]
     )]
     public function deleteUser(){
-        try{
+        return $this->handleUserErrors(function () {
             $user = Security::isOwner();
             return response()->json($this->userService->delete($user));
-        }catch(Exception $e){
-            HttpError::InternalError($e);
-        }
+        });
     }
 }
