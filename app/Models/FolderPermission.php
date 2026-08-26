@@ -5,26 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-class FilePermission extends Model
+class FolderPermission extends Model
 {
     use HasUuids;
-
-    const EDITOR = 'editor';
-    const VIEWER = 'viewer';
 
     protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'string';
 
+    const EDITOR = 'editor';
+    const VIEWER = 'viewer';
+
     protected $fillable = [
-        "file_id",
-        "user_id",
-        "permission",
+        'folder_id',
+        'user_id',
+        'permission',
     ];
 
-    public function file()
+    public function folder()
     {
-        return $this->belongsTo(File::class);
+        return $this->belongsTo(Folder::class);
     }
 
     public function user()

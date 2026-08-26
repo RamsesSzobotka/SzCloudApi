@@ -57,4 +57,15 @@ class Folder extends Model
     public function childrenWithTrashed(){
         return $this->hasMany(Folder::class, "parent_id")->withTrashed();
     }
+
+    public function permissions()
+    {
+        return $this->hasMany(FolderPermission::class);
+    }
+
+    public function sharedWith()
+    {
+        return $this->belongsToMany(User::class, 'folder_permissions')
+            ->withPivot('permission');
+    }
 }

@@ -59,4 +59,10 @@ class File extends Model
     public function shareLinks(){
         return $this->hasMany(ShareLink::class);
     }
+
+    public function sharedWith()
+    {
+        return $this->belongsToMany(User::class, 'file_permissions')
+            ->withPivot('permission');
+    }
 }
