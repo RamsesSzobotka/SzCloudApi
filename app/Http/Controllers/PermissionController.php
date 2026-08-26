@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Permission\StoreFilePermissionRequest;
 use App\Http\Requests\Permission\StoreFolderPermissionRequest;
 use App\Http\Requests\Permission\UpdatePermissionRequest;
-use App\Models\File;
-use App\Models\Folder;
+use App\Services\FileService;
+use App\Services\FolderService;
 use App\Services\PermissionService;
 use App\utils\ExceptionCustom\PermisoDenegadoException;
 use App\utils\HttpError;
@@ -19,7 +19,9 @@ use OpenApi\Attributes as OA;
 class PermissionController extends Controller
 {
     public function __construct(
-        private PermissionService $permissionService
+        private PermissionService $permissionService,
+        private FileService $fileService,
+        private FolderService $folderService,
     ) {}
 
     private function handlePermissionErrors(callable $action)
@@ -73,7 +75,7 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($request, $fileId) {
             $user = Security::isOwner();
-            $file = $this->requireFile($fileId, $user->id);
+            $file = $this->fileService->getFile($user->id, $fileId);
 
             $perm = $this->permissionService->shareFile($file, $request->user_id, $request->permission);
 
@@ -104,7 +106,7 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($fileId) {
             $user = Security::isOwner();
-            $this->requireFileAccess($fileId, $user->id);
+            $this->fileService->getFile($user->id, $fileId);
 
             return response()->json([
                 'permissions' => $this->permissionService->getSharedUsers($fileId),
@@ -144,13 +146,11 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($request, $fileId, $userId) {
             $user = Security::isOwner();
-            $file = $this->requireFile($fileId, $user->id);
-
-            $perm = $this->permissionService->shareFile($file, $userId, $request->permission);
+            $file = $this->fileService->getFile($user->id, $fileId);
 
             return response()->json([
                 'message' => 'Permiso actualizado',
-                'permission' => $perm,
+                'permission' => $this->permissionService->shareFile($file, $userId, $request->permission),
             ]);
         });
     }
@@ -176,7 +176,7 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($fileId, $userId) {
             $user = Security::isOwner();
-            $this->requireFile($fileId, $user->id);
+            $this->fileService->getFile($user->id, $fileId);
 
             $this->permissionService->revokeFile($fileId, $userId);
 
@@ -218,7 +218,7 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($request, $folderId) {
             $user = Security::isOwner();
-            $folder = $this->requireFolder($folderId, $user->id);
+            $folder = $this->folderService->getFolder($user->id, $folderId);
 
             $perm = $this->permissionService->shareFolder($folder, $request->user_id, $request->permission);
 
@@ -250,7 +250,7 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($folderId) {
             $user = Security::isOwner();
-            $this->requireFolderAccess($folderId, $user->id);
+            $this->folderService->getFolder($user->id, $folderId);
 
             return response()->json([
                 'permissions' => $this->permissionService->getSharedUsersFolder($folderId),
@@ -279,7 +279,7 @@ class PermissionController extends Controller
     {
         return $this->handlePermissionErrors(function () use ($folderId, $userId) {
             $user = Security::isOwner();
-            $this->requireFolder($folderId, $user->id);
+            $this->folderService->getFolder($user->id, $folderId);
 
             $this->permissionService->revokeFolder($folderId, $userId);
 
@@ -287,53 +287,4 @@ class PermissionController extends Controller
         });
     }
 
-    // ─── Helpers privados ────────────────────────────────────
-
-    /**
-     * Carga un archivo y verifica que el usuario sea el propietario.
-     * Retorna el modelo File para reutilizarlo.
-     */
-    private function requireFile(string $fileId, string $userId): File
-    {
-        $file = File::findOrFail($fileId);
-        if ($file->user_id !== $userId) {
-            abort(403, 'Solo el propietario del archivo puede gestionar permisos');
-        }
-        return $file;
-    }
-
-    /**
-     * Carga un archivo y verifica que el usuario tenga acceso.
-     */
-    private function requireFileAccess(string $fileId, string $userId): void
-    {
-        $perm = $this->permissionService->getFilePermission($fileId, $userId);
-        if ($perm === null) {
-            abort(403, 'No tienes acceso a este archivo');
-        }
-    }
-
-    /**
-     * Carga una carpeta y verifica que el usuario sea el propietario.
-     * Retorna el modelo Folder para reutilizarlo.
-     */
-    private function requireFolder(string $folderId, string $userId): Folder
-    {
-        $folder = Folder::findOrFail($folderId);
-        if ($folder->user_id !== $userId) {
-            abort(403, 'Solo el propietario de la carpeta puede gestionar permisos');
-        }
-        return $folder;
-    }
-
-    /**
-     * Carga una carpeta y verifica que el usuario tenga acceso.
-     */
-    private function requireFolderAccess(string $folderId, string $userId): void
-    {
-        $perm = $this->permissionService->getFolderPermission($folderId, $userId);
-        if ($perm === null) {
-            abort(403, 'No tienes acceso a esta carpeta');
-        }
-    }
 }
