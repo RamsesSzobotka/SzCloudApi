@@ -25,4 +25,5 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Folders', description: 'CRUD de carpetas — crear, renombrar, mover, restaurar')]
 #[OA\Tag(name: 'Files', description: 'CRUD de archivos — subir, renombrar, mover, restaurar')]
 #[OA\Tag(name: 'Trash', description: 'Papelera — listar, vaciar, eliminación permanente')]
+#[OA\Tag(name: 'Permissions', description: 'Permisos de archivos y carpetas — compartir, listar, revocar')]
 class Swagger {}
