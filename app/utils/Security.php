@@ -21,10 +21,11 @@ class Security
 
     // ─── Auth check ───────────────────────────────────────────────
 
-    public static function isOwner()
+    public static function isOwner(): \App\Models\User
     {
-        if (!$user = auth("api")->user()) {
-            return response()->json("no autenticado", 401);
+        $user = auth("api")->user();
+        if (!$user) {
+            abort(401, 'No autenticado');
         }
         return $user;
     }
