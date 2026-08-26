@@ -28,7 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
-                    'message' => 'Unauthenticated.',
+                    'message' => 'No autenticado.',
                 ], 401);
             }
         });
@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(function (\Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
-                    'message' => $e->getMessage() ?: 'Unauthenticated.',
+                    'message' => $e->getMessage() ?: 'No autenticado.',
                 ], 401);
             }
         });
@@ -46,8 +46,16 @@ return Application::configure(basePath: dirname(__DIR__))
         ) {
             if ($request->is('api/*')) {
                 return response()->json([
-                    'message' => 'Not Found',
+                    'message' => 'Recurso no encontrado',
                 ], 404);
+            }
+        });
+
+        $exceptions->renderable(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $e->getMessage() ?: 'Error',
+                ], $e->getStatusCode());
             }
         });
     })->create();
