@@ -143,7 +143,7 @@ async function doLogin() {
   Swal.fire({ title: 'Iniciando sesión...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
   const d = await api('POST', '/login', { email, password: pass });
   Swal.close();
-  if (d) { await updateStatus(); toast('Logueado'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
+  if (d) { await updateStatus(); toast('Sesión iniciada'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
 }
 
 async function doLogout() {
@@ -618,7 +618,7 @@ async function showActivity(id) {
 // ── Browser actions ──
 async function createFolderBrowser() {
   const name = $('new-folder-name').value.trim();
-  if (!name) return toast('Escribí un nombre');
+  if (!name) return toast('Ingrese un nombre');
   const body = { name };
   if (currentFolderId) body.parent_id = currentFolderId;
   const d = await api('POST', '/storage/folder', body);
@@ -645,7 +645,7 @@ async function confirmUpload() {
 
 async function uploadFileBrowser() {
   const file = $('upload-file-input').files[0];
-  if (!file) return toast('Seleccioná un archivo');
+  if (!file) return toast('Seleccione un archivo');
 
   const params = new URLSearchParams({ name: file.name });
   if (currentFolderId) params.set('folder_id', currentFolderId);
