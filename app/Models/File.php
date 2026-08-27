@@ -52,17 +52,7 @@ class File extends Model
         return $this->hasMany(FileActivity::class);
     }
 
-    public function permissions(){
-        return $this->hasMany(FilePermission::class);
-    }
-
     public function shareLinks(){
         return $this->hasMany(ShareLink::class);
-    }
-
-    public function sharedWith()
-    {
-        return $this->belongsToMany(User::class, 'file_permissions')
-            ->withPivot('permission');
     }
 }

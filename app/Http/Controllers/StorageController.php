@@ -17,7 +17,6 @@ use App\utils\ExceptionCustom\CarpetaCicloException;
 use App\Services\FileService;
 use App\Services\FolderService;
 use App\Services\StorageUsageService;
-use App\Services\PermissionService;
 use App\utils\MinIOHelper;
 use App\utils\Security;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -33,7 +32,6 @@ class StorageController extends Controller
         private FileService $fileService,
         private FolderService $folderService,
         private StorageUsageService $storageUsageService,
-        private PermissionService $permissionService,
     ){}
 
     private function handleStorageErrors(callable $action){
@@ -117,7 +115,7 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($req){
             $user = Security::isOwner();
             if ($req->folder_id !== null) {
-                $this->folderService->getFolder($user->id, $req->folder_id, 'editor');
+                $this->folderService->getFolder($user->id, $req->folder_id);
             }
             return response()->json($this->fileService->addFile($user, $req->file('file'), $req->folder_id),201);
         });
@@ -377,7 +375,7 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
 
-            $file = $this->fileService->getFile($user->id, $file_id, 'editor');
+            $file = $this->fileService->getFile($user->id, $file_id);
 
             return response()->json(
                 $this->fileService->moveFile(
@@ -419,8 +417,7 @@ class StorageController extends Controller
 
             $folder = $this->folderService->getFolder(
                 $user->id,
-                $folder_id,
-                'editor'
+                $folder_id
             );
 
             return response()->json(
@@ -460,7 +457,7 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
 
-            $file = $this->fileService->getFile($user->id, $file_id, 'editor');
+            $file = $this->fileService->getFile($user->id, $file_id);
 
             return response()->json(
                 $this->fileService->renameFile($file, $request->name)
@@ -496,7 +493,7 @@ class StorageController extends Controller
         return $this->handleStorageErrors(function() use ($folder_id, $request){
             $user = Security::isOwner();
 
-            $folder = $this->folderService->getFolder($user->id, $folder_id, 'editor');
+            $folder = $this->folderService->getFolder($user->id, $folder_id);
 
             return response()->json(
                 $this->folderService->renameFolder($folder, $request->name)

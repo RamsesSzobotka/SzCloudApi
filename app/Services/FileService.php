@@ -20,7 +20,6 @@ class FileService {
     public function __construct(
         private StorageUsageService $storageUsageService,
         private FolderService $folderService,
-        private PermissionService $permissionService,
     ){}
 
     public function addFile(User $user, UploadedFile $file, ?string $folderId = null){
@@ -82,32 +81,9 @@ class FileService {
         });
     }
 
-    public function getFile(string $userId, string $fileId, ?string $requiredPermission = null)
+    public function getFile(string $userId, string $fileId)
     {
-        $file = File::findOrFail($fileId);
-
-        // Owner check
-        if ($file->user_id === $userId) {
-            return $file;
-        }
-
-        // Permission check
-        $level = $this->permissionService->getFilePermission($fileId, $userId);
-
-        if ($level === null) {
-            abort(403, 'No tienes acceso a este archivo');
-        }
-
-        if ($requiredPermission !== null) {
-            $hierarchy = ['viewer' => 0, 'editor' => 1];
-            $hasLevel = $hierarchy[$level] ?? 0;
-            $needsLevel = $hierarchy[$requiredPermission] ?? 0;
-            if ($hasLevel < $needsLevel) {
-                abort(403, 'Permiso insuficiente');
-            }
-        }
-
-        return $file;
+        return File::where('user_id', $userId)->where('id', $fileId)->firstOrFail();
     }
 
     public function getTrashedFile(string $userId, string $fileId){

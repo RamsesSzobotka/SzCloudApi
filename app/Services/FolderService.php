@@ -10,9 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class FolderService {
 
-    public function __construct(
-        private PermissionService $permissionService,
-    ){}
+    public function __construct(){}
 
     public function addFolder(FolderDto $folder){
         return DB::transaction(function () use ($folder) {
@@ -75,32 +73,9 @@ class FolderService {
         ];
     }
 
-    public function getFolder(string $userId, string $folderId, ?string $requiredPermission = null)
+    public function getFolder(string $userId, string $folderId)
     {
-        $folder = Folder::findOrFail($folderId);
-
-        // Owner check
-        if ($folder->user_id === $userId) {
-            return $folder;
-        }
-
-        // Permission check
-        $level = $this->permissionService->getFolderPermission($folderId, $userId);
-
-        if ($level === null) {
-            abort(403, 'No tienes acceso a esta carpeta');
-        }
-
-        if ($requiredPermission !== null) {
-            $hierarchy = ['viewer' => 0, 'editor' => 1];
-            $hasLevel = $hierarchy[$level] ?? 0;
-            $needsLevel = $hierarchy[$requiredPermission] ?? 0;
-            if ($hasLevel < $needsLevel) {
-                abort(403, 'Permiso insuficiente');
-            }
-        }
-
-        return $folder;
+        return Folder::where('user_id', $userId)->where('id', $folderId)->firstOrFail();
     }
 
     public function getTrashedFolder(string $userId, string $folderId){

@@ -8,7 +8,6 @@ use App\utils\HttpError;
 use App\utils\Security;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class ExpansionController extends Controller
