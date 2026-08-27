@@ -180,8 +180,6 @@ class FolderService {
         $children = $folder->childrenWithTrashed()->get();
         $files = File::withTrashed()->where("folder_id", $folder->id)->get();
 
-        $folder->forceDelete();
-
         foreach ($children as $child) {
             $this->deletePermanentFolderRecursive($child);
         }
@@ -189,6 +187,8 @@ class FolderService {
         foreach ($files as $file) {
             app(FileService::class)->deletePermanentFile($file);
         }
+
+        $folder->forceDelete();
     }
 
     public function getFolderContentCount(Folder $folder): int {
