@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SzCloud API Test</title>
+  <title>SzCloud API Tester</title>
+  <link rel="preconnect" href="https://fonts.bunny.net">
+  <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|jetbrains-mono:400,500" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="test.css">
 </head>
@@ -12,7 +14,7 @@
 <!-- ═══ HEADER ═══ -->
 <div class="header">
   <div class="header-left">
-    <h1>SzCloud API</h1>
+    <h1>SzCloud <span class="header-sub">API Tester</span></h1>
     <span id="status-badge" class="status disconnected"><span class="status-dot"></span>sin token</span>
   </div>
   <div class="header-actions">
@@ -20,116 +22,183 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
       Login
     </button>
-    <button class="header-btn" id="btn-logout" onclick="doLogout()" style="display:none">
+    <button class="header-btn danger-btn" id="btn-logout" onclick="doLogout()" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Logout
     </button>
   </div>
 </div>
 
+<!-- ═══ MAIN LAYOUT: 3 columns ═══ -->
 <div class="layout">
-  <!-- ═══ MAIN CONTENT ═══ -->
-  <div class="main">
 
-    <!-- ═══ EXPLORER ═══ -->
-    <div class="explorer">
-      <div class="breadcrumb" id="breadcrumb">
-        <span class="breadcrumb-item" onclick="browseRoot()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Raíz
-        </span>
-      </div>
-      <div class="explorer-bar">
-        <button onclick="browseRoot()" title="Refrescar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        </button>
-        <input id="new-folder-name" type="text" placeholder="Nueva carpeta..." style="width:180px">
-        <button onclick="createFolderBrowser()" title="Crear carpeta">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-        </button>
-        <input id="upload-file-input" type="file" style="width:auto;background:transparent;border:none;padding:0">
-        <button onclick="uploadFileBrowser()" title="Subir archivo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        </button>
-        <button class="sm" onclick="browseTrash()" title="Papelera">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
-        <button class="sm" onclick="loadStorageInfo()" title="Info">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        </button>
-      </div>
-      <div id="storage-info-bar" class="storage-bar">
-        <div class="storage-bar-bg"><div class="storage-bar-fill" id="storage-fill" style="width:0%"></div></div>
-        <div class="storage-bar-text" id="storage-text">Cargando...</div>
-      </div>
-      <div id="file-grid" class="file-grid"></div>
-      <div id="pagination" class="pagination"></div>
-      <div id="detail-panel" class="detail-panel"></div>
+  <!-- Explorer toggle (visible when collapsed) -->
+  <button class="explorer-toggle" id="explorer-toggle" onclick="toggleExplorer()" title="Abrir explorador">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+  </button>
+
+  <!-- ═══ LEFT: FILE EXPLORER ═══ -->
+  <div class="panel-explorer" id="panel-explorer">
+    <div class="panel-explorer-header">
+      <span class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Archivos
+      </span>
+      <button class="icon-btn" onclick="toggleExplorer()" title="Colapsar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/></svg>
+      </button>
     </div>
 
-    <!-- ═══ API PANELS ═══ -->
-    <div class="panels">
-    <div class="grid">
+    <div class="explorer-toolbar">
+      <input id="new-folder-name" type="text" placeholder="Nueva carpeta...">
+      <button class="icon-btn" onclick="createFolderBrowser()" title="Crear carpeta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <label class="icon-btn" title="Subir archivo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <input id="upload-file-input" type="file" onchange="uploadFileBrowser()" hidden>
+      </label>
+      <button class="icon-btn" onclick="browseTrash()" title="Papelera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>
 
-      <!-- CUSTOM REQUEST -->
-      <div class="panel">
-        <h2>Custom Request</h2>
-        <label>Método</label>
-        <select id="custom-method">
-          <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
-        </select>
-        <label>Ruta (/api/...)</label>
-        <input id="custom-path" value="/api/me">
-        <label>Body (JSON)</label>
-        <textarea id="custom-body"></textarea>
-        <button onclick="customRequest()">Enviar</button>
-      </div>
+    <div class="breadcrumb" id="breadcrumb">
+      <span class="breadcrumb-item" onclick="browseRoot()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Raíz
+      </span>
+    </div>
 
-      <!-- AUTH -->
-      <div class="panel">
-        <h2>Auth</h2>
-        <div id="token-display"></div>
-        <div class="row">
-          <button onclick="doMe()">GET /me</button>
-          <button onclick="doRefresh()">POST /refresh</button>
+    <div id="storage-info-bar" class="storage-bar" style="display:none">
+      <div class="storage-bar-bg"><div class="storage-bar-fill" id="storage-fill" style="width:0%"></div></div>
+      <div class="storage-bar-text" id="storage-text">Cargando...</div>
+    </div>
+
+    <div id="file-grid" class="file-grid"></div>
+    <div id="pagination" class="pagination"></div>
+  </div>
+
+  <!-- ═══ CENTER: API TESTER ═══ -->
+  <div class="panel-tester">
+    <!-- Request Bar -->
+    <div class="request-bar">
+      <select id="req-method" class="method-select">
+        <option value="GET" class="method-get">GET</option>
+        <option value="POST" class="method-post">POST</option>
+        <option value="PUT" class="method-put">PUT</option>
+        <option value="PATCH" class="method-patch">PATCH</option>
+        <option value="DELETE" class="method-delete">DELETE</option>
+      </select>
+      <input id="req-url" type="text" class="url-input" value="/api/me" placeholder="/api/...">
+      <button class="send-btn" onclick="sendRequest()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Enviar
+      </button>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <span class="quick-label">Rápidas:</span>
+      <button class="quick-btn" onclick="quickAuth('GET','/me')">GET /me</button>
+      <button class="quick-btn" onclick="quickAuth('POST','/refresh')">POST /refresh</button>
+      <button class="quick-btn" onclick="quickAuth('GET','/storage/info')">GET /storage/info</button>
+      <button class="quick-btn" onclick="quickAuth('GET','/storage/folder/content')">GET /folders</button>
+      <button class="quick-btn" onclick="quickAuth('GET','/storage/trash')">GET /trash</button>
+      <button class="quick-btn" onclick="quickAuth('POST','/logout')">POST /logout</button>
+    </div>
+
+    <!-- Request Tabs -->
+    <div class="req-tabs">
+      <div class="req-tab active" onclick="switchReqTab('body',this)">Body</div>
+      <div class="req-tab" onclick="switchReqTab('headers',this)">Headers</div>
+      <div class="req-tab" onclick="switchReqTab('auth',this)">Auth</div>
+    </div>
+
+    <div class="req-tab-content">
+      <!-- Body Tab -->
+      <div class="req-pane active" id="req-body-pane">
+        <div class="body-type-row">
+          <label class="radio-label"><input type="radio" name="body-type" value="json" checked onchange="switchBodyType(this.value)"> JSON</label>
+          <label class="radio-label"><input type="radio" name="body-type" value="form" onchange="switchBodyType(this.value)"> Form Data</label>
+          <label class="radio-label"><input type="radio" name="body-type" value="none" onchange="switchBodyType(this.value)"> None</label>
+        </div>
+        <div id="body-json-editor">
+          <textarea id="req-body" placeholder='{"key": "value"}'></textarea>
+        </div>
+        <div id="body-form-editor" style="display:none">
+          <div id="form-fields"></div>
+          <button class="small-btn" onclick="addFormField()">+ Agregar campo</button>
         </div>
       </div>
 
-    </div>
+      <!-- Headers Tab -->
+      <div class="req-pane" id="req-headers-pane" style="display:none">
+        <div id="header-fields"></div>
+        <button class="small-btn" onclick="addHeaderField()">+ Agregar header</button>
+      </div>
+
+      <!-- Auth Tab -->
+      <div class="req-pane" id="req-auth-pane" style="display:none">
+        <div class="auth-info">
+          <p>La autenticación se maneja automáticamente vía cookies de sesión.</p>
+          <p>Usa el botón <strong>Login</strong> para iniciar sesión.</p>
+          <div class="auth-actions">
+            <button onclick="doMe()">GET /me</button>
+            <button onclick="doRefresh()">POST /refresh</button>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- Console (bottom) -->
+    <div class="console-resize" id="console-resize"></div>
+    <div class="console-area" id="console-area">
+      <div class="console-header">
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Console
+        </span>
+        <button class="icon-btn-sm" onclick="$('log').innerHTML=''" title="Limpiar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        </button>
+      </div>
+      <div id="log"></div>
+    </div>
   </div>
 
-  <!-- ═══ CONSOLE (SIDEBAR) ═══ -->
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle console">&gt;</button>
+  <!-- ═══ RIGHT: RESPONSE ═══ -->
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle response">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
   <div class="sidebar" id="sidebar">
-    <div class="console-header">
-      <span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        Console
-      </span>
-      <button onclick="$('log').innerHTML=''">Clear</button>
+    <div class="response-area">
+      <div class="response-header">
+        <span class="response-title">Response</span>
+        <span id="res-status" class="res-status"></span>
+        <span id="res-time" class="res-time"></span>
+        <button class="icon-btn" onclick="clearResponse()" title="Limpiar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="response-tabs">
+        <div class="res-tab active" onclick="switchResTab('body',this)">Body</div>
+        <div class="res-tab" onclick="switchResTab('headers',this)">Headers</div>
+      </div>
+      <div id="res-body" class="response-body">
+        <div class="empty-response">Envía una request para ver la respuesta</div>
+      </div>
+      <div id="res-headers" class="response-body" style="display:none"></div>
     </div>
-    <div id="log"></div>
   </div>
 </div>
 
-<!-- Upload Modal -->
-<div id="upload-modal" class="modal-overlay hidden">
-  <div class="modal">
-    <h3>Conflicto de nombre</h3>
-    <div class="modal-body" id="upload-modal-body"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeUploadModal()">Cancelar</button>
-      <button class="btn-upload" id="upload-modal-confirm" onclick="confirmUpload()">Subir</button>
-    </div>
-  </div>
-</div>
+<!-- ═══ MODALS ═══ -->
 
 <!-- Login Modal -->
-<div id="login-modal" class="login-overlay hidden" onclick="if(event.target===this)closeLoginModal()">
-  <div class="login-panel" style="position:relative">
-    <button class="login-close" onclick="closeLoginModal()">
+<div id="login-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeLoginModal()">
+  <div class="modal login-panel">
+    <button class="modal-close" onclick="closeLoginModal()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
     <h3>Iniciar Sesión</h3>
@@ -137,22 +206,31 @@
     <input id="login-email" type="email" value="test@test.com">
     <label>Contraseña</label>
     <input id="login-pass" type="password" value="password123">
-    <div class="login-actions">
+    <div class="modal-actions-row">
       <button class="btn-secondary" onclick="doRegister()">Register</button>
       <button class="btn-primary" onclick="doLogin()">Login</button>
     </div>
   </div>
 </div>
 
+<!-- Upload Conflict Modal -->
+<div id="upload-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Conflicto de nombre</h3>
+    <div class="modal-body" id="upload-modal-body"></div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeUploadModal()">Cancelar</button>
+      <button class="btn-primary" id="upload-modal-confirm" onclick="confirmUpload()">Subir</button>
+    </div>
+  </div>
+</div>
+
 <!-- Properties Modal -->
-<div id="props-overlay" class="props-overlay hidden" onclick="if(event.target===this)closeProps()">
-  <div class="props-panel">
-    <div class="props-header">
-      <h3 id="props-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Propiedades
-      </h3>
-      <button class="props-close" onclick="closeProps()">
+<div id="props-overlay" class="modal-overlay hidden" onclick="if(event.target===this)closeProps()">
+  <div class="modal props-panel">
+    <div class="modal-header-row">
+      <h3 id="props-title">Propiedades</h3>
+      <button class="modal-close" onclick="closeProps()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -166,14 +244,11 @@
 </div>
 
 <!-- Move Modal -->
-<div id="move-overlay" class="move-overlay hidden" onclick="if(event.target===this)closeMoveModal()">
-  <div class="move-panel">
-    <div class="move-header">
-      <h3 id="move-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        Mover a...
-      </h3>
-      <button class="move-close" onclick="closeMoveModal()">
+<div id="move-overlay" class="modal-overlay hidden" onclick="if(event.target===this)closeMoveModal()">
+  <div class="modal move-panel">
+    <div class="modal-header-row">
+      <h3 id="move-title">Mover a...</h3>
+      <button class="modal-close" onclick="closeMoveModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -183,9 +258,9 @@
         Raíz
       </div>
     </div>
-    <div class="move-actions">
-      <button class="btn-cancel" style="background:var(--card);color:var(--text);border:1px solid var(--border)" onclick="closeMoveModal()">Cancelar</button>
-      <button style="background:var(--primary);color:#fff;flex:1" onclick="confirmMove()">Mover</button>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeMoveModal()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmMove()">Mover</button>
     </div>
   </div>
 </div>
