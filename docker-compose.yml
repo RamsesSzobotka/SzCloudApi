@@ -5,9 +5,14 @@ services:
       - .:/var/www/html
     ports:
       - "8000:8000"
+    env_file: .env
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
     networks:
       - backend
 
@@ -16,12 +21,18 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - .:/var/www/html
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - backend
     profiles:
       - migrate
+    entrypoint: ["php", "artisan"]
+    command: ["migrate", "--force"]
 
   redis:
     image: redis:7-alpine
@@ -56,6 +67,11 @@ services:
       - pg-data:/var/lib/postgresql/data
     networks:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 networks:
   backend:

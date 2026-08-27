@@ -1,8 +1,12 @@
 FROM php:8.4-cli
 
+# Install Node.js for Vite builds
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     unzip \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && docker-php-ext-install \
         pdo \
         pdo_pgsql \
@@ -15,8 +19,16 @@ COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 
 WORKDIR /var/www/html
 
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
+COPY package.json ./
+RUN npm install --ignore-scripts
+
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader
+RUN npm run build
+
+EXPOSE 8000
 
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

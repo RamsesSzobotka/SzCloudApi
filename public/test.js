@@ -20,8 +20,9 @@ function log(msg, cls = '') {
   const line = document.createElement('div');
   line.className = cls;
   line.textContent = msg;
-  el.prepend(line);
-  if (el.children.length > 200) el.lastChild.remove();
+  el.appendChild(line);
+  if (el.children.length > 200) el.firstChild.remove();
+  el.scrollTop = el.scrollHeight;
 }
 function logJson(label, data, ok = true) { log(`${label} ${JSON.stringify(data, null, 2).substring(0, 500)}`, ok ? 'log-ok' : 'log-err'); }
 
@@ -51,6 +52,7 @@ const ICONS = {
   arrowRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
   close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   permDelete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  remove: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 };
 
 function getFileIcon(ext, mime) {
@@ -79,35 +81,73 @@ function fmtSize(b) {
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function fmtDate(s) { if (!s) return ''; try { return new Date(s).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' }); } catch { return s; } }
 
-// ── Status ──
+// ═══════════════════════════════════════════
+//  STATUS & AUTH
+// ═══════════════════════════════════════════
+
 async function updateStatus() {
   const b = $('status-badge');
-  const d = $('token-display');
   const btnLogin = $('btn-login');
   const btnLogout = $('btn-logout');
   try {
     const res = await fetch(`${API}/me`, { credentials: 'same-origin' });
     if (res.ok) {
       b.innerHTML = '<span class="status-dot"></span>conectado'; b.className = 'status connected';
-      d.textContent = 'Cookie activa';
       if (btnLogin) btnLogin.style.display = 'none';
       if (btnLogout) btnLogout.style.display = '';
     } else {
       b.innerHTML = '<span class="status-dot"></span>sin token'; b.className = 'status disconnected';
-      d.textContent = '';
       if (btnLogin) btnLogin.style.display = '';
       if (btnLogout) btnLogout.style.display = 'none';
     }
   } catch {
     b.innerHTML = '<span class="status-dot"></span>sin token'; b.className = 'status disconnected';
-    d.textContent = '';
     if (btnLogin) btnLogin.style.display = '';
     if (btnLogout) btnLogout.style.display = 'none';
   }
 }
 
-// ── API helper ──
-async function api(method, path, body = null, isForm = false) {
+function openLoginModal() { $('login-modal').classList.remove('hidden'); $('login-email').focus(); }
+function closeLoginModal() { $('login-modal').classList.add('hidden'); }
+
+async function doRegister() {
+  const email = $('login-email').value;
+  const pass = $('login-pass').value;
+  if (!email || !pass) return Swal.fire({ icon: 'warning', title: 'Completa los campos', background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+  Swal.fire({ title: 'Registrando...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
+  const d = await apiCall('POST', '/register', { name: email.split('@')[0], email, password: pass, password_confirmation: pass });
+  Swal.close();
+  if (d) { await updateStatus(); toast('Registrado'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
+}
+
+async function doLogin() {
+  const email = $('login-email').value;
+  const pass = $('login-pass').value;
+  if (!email || !pass) return Swal.fire({ icon: 'warning', title: 'Completa los campos', background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+  Swal.fire({ title: 'Iniciando sesión...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
+  const d = await apiCall('POST', '/login', { email, password: pass });
+  Swal.close();
+  if (d) { await updateStatus(); toast('Sesión iniciada'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
+}
+
+async function doLogout() {
+  const result = await Swal.fire({
+    title: '¿Cerrar sesión?', icon: 'question', showCancelButton: true,
+    confirmButtonText: 'Sí, salir', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+  });
+  if (!result.isConfirmed) return;
+  await apiCall('POST', '/logout');
+  await updateStatus(); toast('Desconectado');
+  currentView = 'files'; currentFolderId = null;
+  $('file-grid').innerHTML = ''; $('pagination').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════
+//  API CALL HELPER (for file browser)
+// ═══════════════════════════════════════════
+
+async function apiCall(method, path, body = null, isForm = false) {
   const opts = { method, headers: {}, credentials: 'same-origin' };
   if (body && !isForm) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   else if (body && isForm) { opts.body = body; }
@@ -122,54 +162,164 @@ async function api(method, path, body = null, isForm = false) {
   } catch (e) { log(`Error: ${e.message}`, 'log-err'); return null; }
 }
 
-// ── Auth ──
-function openLoginModal() { $('login-modal').classList.remove('hidden'); $('login-email').focus(); }
-function closeLoginModal() { $('login-modal').classList.add('hidden'); }
+// ═══════════════════════════════════════════
+//  API TESTER (center panel)
+// ═══════════════════════════════════════════
 
-async function doRegister() {
-  const email = $('login-email').value;
-  const pass = $('login-pass').value;
-  if (!email || !pass) return Swal.fire({ icon: 'warning', title: 'Completa los campos', background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
-  Swal.fire({ title: 'Registrando...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
-  const d = await api('POST', '/register', { name: email.split('@')[0], email, password: pass, password_confirmation: pass });
-  Swal.close();
-  if (d) { await updateStatus(); toast('Registrado'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
-}
+async function sendRequest() {
+  const method = $('req-method').value;
+  const path = $('req-url').value.trim();
+  if (!path) return toast('Ingresa una ruta');
 
-async function doLogin() {
-  const email = $('login-email').value;
-  const pass = $('login-pass').value;
-  if (!email || !pass) return Swal.fire({ icon: 'warning', title: 'Completa los campos', background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
-  Swal.fire({ title: 'Iniciando sesión...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
-  const d = await api('POST', '/login', { email, password: pass });
-  Swal.close();
-  if (d) { await updateStatus(); toast('Sesión iniciada'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
-}
-
-async function doLogout() {
-  const result = await Swal.fire({
-    title: '¿Cerrar sesión?',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, salir',
-    cancelButtonText: 'Cancelar',
-    background: '#1a1a2e', color: '#e2e8f0',
-    confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+  // Build headers
+  const headers = {};
+  document.querySelectorAll('#header-fields .header-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    if (inputs[0].value.trim() && inputs[1].value.trim()) {
+      headers[inputs[0].value.trim()] = inputs[1].value.trim();
+    }
   });
-  if (!result.isConfirmed) return;
-  await api('POST', '/logout');
-  await updateStatus(); toast('Desconectado');
-  currentView = 'files'; currentFolderId = null;
-  $('file-grid').innerHTML = ''; $('detail-panel').classList.remove('show');
-  $('pagination').innerHTML = '';
+
+  // Build body
+  let body = null;
+  const bodyType = document.querySelector('input[name="body-type"]:checked')?.value || 'json';
+  if (method !== 'GET' && method !== 'DELETE') {
+    if (bodyType === 'json') {
+      const raw = $('req-body').value.trim();
+      if (raw) {
+        try { body = JSON.parse(raw); } catch { log('JSON inválido en body', 'log-err'); return; }
+      }
+    } else if (bodyType === 'form') {
+      body = new FormData();
+      document.querySelectorAll('#form-fields .form-row').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs[0].value.trim()) body.append(inputs[0].value.trim(), inputs[1].value);
+      });
+    }
+  }
+
+  // Fire the request
+  const startTime = performance.now();
+  log(`> ${method} ${path}`, 'log-info');
+
+  try {
+    const opts = { method, headers: { ...headers }, credentials: 'same-origin' };
+    if (body instanceof FormData) {
+      opts.body = body;
+    } else if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+
+    const res = await fetch(`${API}${path}`, opts);
+    const elapsed = Math.round(performance.now() - startTime);
+    const ct = res.headers.get('content-type') || '';
+    const data = ct.includes('json') ? await res.json() : await res.text();
+
+    // Show response
+    const statusEl = $('res-status');
+    statusEl.textContent = `${res.status} ${res.statusText}`;
+    statusEl.className = 'res-status ' + (res.ok ? 'ok' : 'err');
+    $('res-time').textContent = `${elapsed}ms`;
+
+    // Response body
+    const bodyEl = $('res-body');
+    if (ct.includes('json')) {
+      bodyEl.textContent = JSON.stringify(data, null, 2);
+    } else {
+      bodyEl.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    // Response headers
+    const headersEl = $('res-headers');
+    let headersText = '';
+    res.headers.forEach((v, k) => { headersText += `${k}: ${v}\n`; });
+    headersEl.textContent = headersText;
+
+    logJson(`[${res.status}]`, data, res.ok);
+  } catch (e) {
+    const elapsed = Math.round(performance.now() - startTime);
+    $('res-status').textContent = 'Error';
+    $('res-status').className = 'res-status err';
+    $('res-time').textContent = `${elapsed}ms`;
+    $('res-body').textContent = e.message;
+    log(`Error: ${e.message}`, 'log-err');
+  }
 }
 
-async function doMe() { await api('GET', '/me'); }
-async function doRefresh() { const d = await api('POST', '/refresh'); if (d) { await updateStatus(); toast('Token renovado'); } }
+function quickAuth(method, path) {
+  $('req-method').value = method;
+  $('req-url').value = path;
+  if (method === 'GET' || method === 'DELETE') {
+    document.querySelector('input[name="body-type"][value="none"]').checked = true;
+    switchBodyType('none');
+  }
+  sendRequest();
+}
 
-// ── Storage info ──
+// ── Request Tabs ──
+function switchReqTab(tab, el) {
+  document.querySelectorAll('.req-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  $('req-body-pane').style.display = tab === 'body' ? '' : 'none';
+  $('req-headers-pane').style.display = tab === 'headers' ? '' : 'none';
+  $('req-auth-pane').style.display = tab === 'auth' ? '' : 'none';
+  if (tab === 'body') $('req-body-pane').classList.add('active');
+  if (tab === 'headers') $('req-headers-pane').classList.add('active');
+  if (tab === 'auth') $('req-auth-pane').classList.add('active');
+}
+
+// ── Body Type ──
+function switchBodyType(type) {
+  $('body-json-editor').style.display = type === 'json' ? '' : 'none';
+  $('body-form-editor').style.display = type === 'form' ? '' : 'none';
+}
+
+// ── Dynamic Form Fields ──
+function addFormField(key = '', value = '') {
+  const container = $('form-fields');
+  const row = document.createElement('div');
+  row.className = 'form-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Key" value="${esc(key)}">
+    <input type="text" placeholder="Value" value="${esc(value)}">
+    <button class="remove-btn" onclick="this.parentElement.remove()">${ICONS.remove}</button>`;
+  container.appendChild(row);
+}
+
+function addHeaderField(key = '', value = '') {
+  const container = $('header-fields');
+  const row = document.createElement('div');
+  row.className = 'header-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Header name" value="${esc(key)}">
+    <input type="text" placeholder="Value" value="${esc(value)}">
+    <button class="remove-btn" onclick="this.parentElement.remove()">${ICONS.remove}</button>`;
+  container.appendChild(row);
+}
+
+function clearResponse() {
+  $('res-status').textContent = '';
+  $('res-status').className = 'res-status';
+  $('res-time').textContent = '';
+  $('res-body').innerHTML = '<div class="empty-response">Envía una request para ver la respuesta</div>';
+  $('res-headers').innerHTML = '';
+}
+
+// ── Response Tabs ──
+function switchResTab(tab, el) {
+  document.querySelectorAll('.res-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  $('res-body').style.display = tab === 'body' ? '' : 'none';
+  $('res-headers').style.display = tab === 'headers' ? '' : 'none';
+}
+
+// ═══════════════════════════════════════════
+//  STORAGE INFO
+// ═══════════════════════════════════════════
+
 async function loadStorageInfo() {
-  const d = await api('GET', '/storage/info');
+  const d = await apiCall('GET', '/storage/info');
   if (!d) return;
   const bar = $('storage-info-bar');
   bar.style.display = 'block';
@@ -182,34 +332,37 @@ async function loadStorageInfo() {
   $('storage-text').textContent = `${fmt(used)} / ${fmt(limit)} (${pct}%) — Archivos: ${d.file_count ?? 0}`;
 }
 
-// ═══ BROWSER ═══
+// ═══════════════════════════════════════════
+//  FILE BROWSER
+// ═══════════════════════════════════════════
+
 async function browseFolder(folderId, page = 1) {
   currentView = 'files';
   currentFolderId = folderId;
   const path = folderId ? `/storage/folder/content/${folderId}` : '/storage/folder/content';
-  const d = await api('GET', `${path}?page=${page}&per_page=20`);
+  const d = await apiCall('GET', `${path}?page=${page}&per_page=20`);
   if (!d) return toast('No autenticado o error');
 
   currentItems.folders = d.folders || [];
   currentItems.files = d.files || [];
 
   if (!folderHierarchy) {
-    folderHierarchy = await api('GET', '/storage/folders/hierarchy');
+    folderHierarchy = await apiCall('GET', '/storage/folders/hierarchy');
   }
 
   renderBreadcrumb(folderId);
   renderGrid(d);
   renderPagination(d);
-  $('detail-panel').classList.remove('show');
+  loadStorageInfo();
 }
 
 function browseRoot() { currentView = 'files'; browseFolder(null); }
 
-// ═══ TRASH ═══
+// ── Trash ──
 async function browseTrash() {
   currentView = 'trash';
   currentFolderId = null;
-  const d = await api('GET', '/storage/trash');
+  const d = await apiCall('GET', '/storage/trash');
   if (!d) return toast('No autenticado o error');
 
   const bc = $('breadcrumb');
@@ -228,7 +381,6 @@ async function browseTrash() {
   bc.appendChild(cur);
 
   renderTrash(d);
-  $('detail-panel').classList.remove('show');
 }
 
 function renderTrash(data) {
@@ -240,20 +392,18 @@ function renderTrash(data) {
   if (folders.length === 0 && files.length === 0) {
     grid.innerHTML = '<div class="empty-msg">La papelera está vacía</div>';
     $('pagination').innerHTML = '';
+    $('storage-info-bar').style.display = 'none';
     return;
   }
 
-  const header = document.createElement('div');
-  header.className = 'trash-header';
-  header.innerHTML = `<h3>${ICONS.trash} ${folders.length + files.length} elemento(s) en papelera</h3>`;
-  if (folders.length + files.length > 0) {
-    const btn = document.createElement('button');
-    btn.className = 'danger';
-    btn.textContent = 'Vaciar papelera';
-    btn.onclick = emptyTrash;
-    header.appendChild(btn);
-  }
-  grid.appendChild(header);
+  // Show empty trash button in storage bar area
+  const bar = $('storage-info-bar');
+  bar.style.display = 'block';
+  bar.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:0.7rem;color:var(--text-dim)">${folders.length + files.length} elemento(s) en papelera</span>
+      <button onclick="emptyTrash()" style="background:var(--danger);color:#fff;border:none;padding:0.25rem 0.6rem;border-radius:var(--radius);font-size:0.68rem;cursor:pointer;font-family:inherit">Vaciar papelera</button>
+    </div>`;
 
   folders.forEach(f => {
     const el = document.createElement('div');
@@ -285,42 +435,33 @@ function renderTrash(data) {
 
 async function restoreItem(type, id) {
   const endpoint = type === 'folder' ? `/storage/folder/${id}/restore` : `/storage/file/${id}/restore`;
-  const d = await api('POST', endpoint);
+  const d = await apiCall('POST', endpoint);
   if (d) { toast('Restaurado'); browseTrash(); loadStorageInfo(); }
 }
 
 async function permanentDeleteItem(type, id) {
   const result = await Swal.fire({
-    title: `¿Eliminar ${type} permanentemente?`,
-    text: 'Esta acción no se puede deshacer.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Eliminar',
-    cancelButtonText: 'Cancelar',
-    background: '#1a1a2e', color: '#e2e8f0',
-    confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+    title: `¿Eliminar ${type} permanentemente?`, text: 'Esta acción no se puede deshacer.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
   });
   if (!result.isConfirmed) return;
-  const d = await api('DELETE', `/storage/trash/${id}/permanent`, { type });
+  const d = await apiCall('DELETE', `/storage/trash/${id}/permanent`, { type });
   if (d) { toast('Eliminado permanentemente'); browseTrash(); loadStorageInfo(); }
 }
 
 async function emptyTrash() {
   const result = await Swal.fire({
-    title: '¿Vaciar toda la papelera?',
-    text: 'Esta acción no se puede deshacer.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Vaciar',
-    cancelButtonText: 'Cancelar',
-    background: '#1a1a2e', color: '#e2e8f0',
-    confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+    title: '¿Vaciar toda la papelera?', text: 'Esta acción no se puede deshacer.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Vaciar', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
   });
   if (!result.isConfirmed) return;
-  const d = await api('DELETE', '/storage/trash');
+  const d = await apiCall('DELETE', '/storage/trash');
   if (d !== null) { toast('Papelera vaciada'); browseTrash(); loadStorageInfo(); }
 }
 
+// ── Breadcrumb ──
 function renderBreadcrumb(folderId) {
   const bc = $('breadcrumb');
   bc.innerHTML = '';
@@ -363,6 +504,7 @@ function findFolderPath(targetId, nodes) {
   return null;
 }
 
+// ── Grid ──
 function renderGrid(data) {
   const grid = $('file-grid');
   grid.innerHTML = '';
@@ -393,7 +535,7 @@ function renderGrid(data) {
     el.innerHTML = `
       <div class="icon">${getFileIcon(ext, f.mime_type)}</div>
       <div class="name">${esc(f.original_name)}</div>
-      <div class="meta">${fmtSize(f.size)} · ${ext || '?'} · ${fmtDate(f.created_at)}</div>
+      <div class="meta">${fmtSize(f.size)} · ${ext || '?'}</div>
       <button class="more-btn" onclick="event.stopPropagation();showContextMenu(event,'file','${f.id}','${esc(f.original_name)}',false)">${ICONS.gear}</button>`;
     el.onclick = () => showDetail('file', f.id);
     grid.appendChild(el);
@@ -414,7 +556,7 @@ function renderPagination(data) {
 
   const info = document.createElement('span');
   info.className = 'page-info';
-  info.textContent = `Pág ${fp.current_page} / ${fp.last_page} (${fp.total} archivos)`;
+  info.textContent = `${fp.current_page}/${fp.last_page}`;
   pg.appendChild(info);
 
   const next = document.createElement('button');
@@ -480,13 +622,12 @@ document.addEventListener('contextmenu', e => {
   if (!e.target.closest('.file-item')) hideContextMenu();
 });
 
-// ── Detail panel / Properties ──
+// ── Detail Panel / Properties ──
 async function showDetail(type, id) {
   const d = type === 'folder'
-    ? await api('GET', `/storage/folder/${id}`)
-    : await api('GET', `/storage/file/${id}`);
+    ? await apiCall('GET', `/storage/folder/${id}`)
+    : await apiCall('GET', `/storage/file/${id}`);
   if (!d) return;
-
   propsData = d;
   propsType = type;
   renderProps('general');
@@ -529,12 +670,12 @@ function renderProps(tab) {
 
   let acts = '';
   if (isFile) {
-    acts += `<button style="background:var(--primary);color:#fff" onclick="closeProps();downloadFileBrowser('${d.id}')">${ICONS.download} Descargar</button>`;
-    acts += `<button style="background:var(--card);color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptRename('file','${d.id}','${esc(d.original_name)}')">${ICONS.edit} Renombrar</button>`;
+    acts += `<button style="background:var(--accent);color:#fff" onclick="closeProps();downloadFileBrowser('${d.id}')">${ICONS.download} Descargar</button>`;
+    acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptRename('file','${d.id}','${esc(d.original_name)}')">${ICONS.edit} Renombrar</button>`;
     acts += `<button style="background:var(--danger);color:#fff" onclick="closeProps();deleteItem('file','${d.id}')">${ICONS.trash} Eliminar</button>`;
   } else {
-    acts += `<button style="background:var(--primary);color:#fff" onclick="closeProps();browseFolder('${d.id}')">${ICONS.folder} Abrir</button>`;
-    acts += `<button style="background:var(--card);color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptRename('folder','${d.id}','${esc(d.name)}')">${ICONS.edit} Renombrar</button>`;
+    acts += `<button style="background:var(--accent);color:#fff" onclick="closeProps();browseFolder('${d.id}')">${ICONS.folder} Abrir</button>`;
+    acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptRename('folder','${d.id}','${esc(d.name)}')">${ICONS.edit} Renombrar</button>`;
     acts += `<button style="background:var(--danger);color:#fff" onclick="closeProps();deleteItem('folder','${d.id}')">${ICONS.trash} Eliminar</button>`;
   }
   actions.innerHTML = acts;
@@ -561,7 +702,7 @@ async function openMoveModal(type, id, name) {
   body.innerHTML = '<div class="spinner" style="display:block;margin:1rem auto"></div>';
   $('move-overlay').classList.remove('hidden');
 
-  const d = await api('GET', '/storage/folders/hierarchy');
+  const d = await apiCall('GET', '/storage/folders/hierarchy');
   if (!d) { body.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:1rem">Error cargando carpetas</div>'; return; }
   folderHierarchy = d;
 
@@ -569,8 +710,7 @@ async function openMoveModal(type, id, name) {
   const renderTree = (folders, depth) => {
     folders.forEach(f => {
       if (type === 'folder' && f.id === id) return;
-      const indent = '&nbsp;'.repeat(depth * 4);
-      html += `<div class="move-folder" data-id="${f.id}" onclick="selectMoveFolder(this,'${f.id}')" style="padding-left:${0.5 + depth * 1.2}rem">${indent}${ICONS.folder} ${esc(f.name)}</div>`;
+      html += `<div class="move-folder" data-id="${f.id}" onclick="selectMoveFolder(this,'${f.id}')" style="padding-left:${0.5 + depth * 1.2}rem">${ICONS.folder} ${esc(f.name)}</div>`;
       if (f.children && f.children.length) renderTree(f.children, depth + 1);
     });
   };
@@ -588,8 +728,8 @@ async function confirmMove() {
   if (!moveTarget) return;
   const { type, id } = moveTarget;
   const endpoint = type === 'folder' ? `/storage/folder/${id}/move` : `/storage/file/${id}/move`;
-  const body = type === 'folder' ? { destination_folder_id: moveSelectedFolder || null } : { destination_folder_id: moveSelectedFolder || null };
-  const d = await api('PATCH', endpoint, body);
+  const body = { destination_folder_id: moveSelectedFolder || null };
+  const d = await apiCall('PATCH', endpoint, body);
   closeMoveModal();
   if (d) { toast('Movido'); folderHierarchy = null; browseFolder(currentFolderId); }
 }
@@ -598,7 +738,7 @@ function closeMoveModal() { $('move-overlay').classList.add('hidden'); }
 
 // ── Versions / Activity ──
 async function showVersions(id) {
-  const d = await api('GET', `/storage/file/${id}/versions`);
+  const d = await apiCall('GET', `/storage/file/${id}/versions`);
   if (!d) return;
   const versions = Array.isArray(d) ? d : [];
   let html = versions.length === 0 ? '<div style="color:var(--text-muted)">No hay versiones</div>' :
@@ -607,7 +747,7 @@ async function showVersions(id) {
 }
 
 async function showActivity(id) {
-  const d = await api('GET', `/storage/file/${id}/activity`);
+  const d = await apiCall('GET', `/storage/file/${id}/activity`);
   if (!d) return;
   const acts = Array.isArray(d) ? d : [];
   let html = acts.length === 0 ? '<div style="color:var(--text-muted)">Sin actividad</div>' :
@@ -615,13 +755,13 @@ async function showActivity(id) {
   Swal.fire({ title: 'Actividad', html: `<div style="text-align:left;max-height:300px;overflow-y:auto">${html}</div>`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
 }
 
-// ── Browser actions ──
+// ── Browser Actions ──
 async function createFolderBrowser() {
   const name = $('new-folder-name').value.trim();
   if (!name) return toast('Ingrese un nombre');
   const body = { name };
   if (currentFolderId) body.parent_id = currentFolderId;
-  const d = await api('POST', '/storage/folder', body);
+  const d = await apiCall('POST', '/storage/folder', body);
   if (d) { toast('Carpeta creada'); $('new-folder-name').value = ''; folderHierarchy = null; browseFolder(currentFolderId); }
 }
 
@@ -639,7 +779,7 @@ async function confirmUpload() {
   const fd = new FormData();
   fd.append('file', file);
   if (currentFolderId) fd.append('folder_id', currentFolderId);
-  const d = await api('POST', '/storage/file', fd, true);
+  const d = await apiCall('POST', '/storage/file', fd, true);
   if (d) { toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId); }
 }
 
@@ -650,7 +790,7 @@ async function uploadFileBrowser() {
   const params = new URLSearchParams({ name: file.name });
   if (currentFolderId) params.set('folder_id', currentFolderId);
 
-  const check = await api('GET', `/storage/file/check-name?${params}`);
+  const check = await apiCall('GET', `/storage/file/check-name?${params}`);
   if (!check) return;
 
   if (check.exists) {
@@ -663,69 +803,97 @@ async function uploadFileBrowser() {
     const fd = new FormData();
     fd.append('file', file);
     if (currentFolderId) fd.append('folder_id', currentFolderId);
-    const d = await api('POST', '/storage/file', fd, true);
+    const d = await apiCall('POST', '/storage/file', fd, true);
     if (d) { toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId); }
   }
+  $('upload-file-input').value = '';
 }
 
 async function downloadFileBrowser(id) {
-  const d = await api('GET', `/storage/file/${id}/download`);
+  const d = await apiCall('GET', `/storage/file/${id}/download`);
   if (d?.url) window.open(d.url, '_blank');
 }
 
 async function deleteItem(type, id) {
   const result = await Swal.fire({
-    title: `¿Eliminar ${type}?`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Eliminar',
-    cancelButtonText: 'Cancelar',
-    background: '#1a1a2e', color: '#e2e8f0',
-    confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+    title: `¿Eliminar ${type}?`, icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
   });
   if (!result.isConfirmed) return;
   const d = type === 'folder'
-    ? await api('DELETE', `/storage/folder/${id}`)
-    : await api('DELETE', `/storage/file/${id}`);
+    ? await apiCall('DELETE', `/storage/folder/${id}`)
+    : await apiCall('DELETE', `/storage/file/${id}`);
   if (d) { toast('Eliminado'); loadStorageInfo(); folderHierarchy = null; browseFolder(currentFolderId); }
 }
 
 async function promptRename(type, id, currentName) {
   const { value: newName } = await Swal.fire({
-    title: 'Nuevo nombre',
-    input: 'text',
-    inputValue: currentName,
-    showCancelButton: true,
-    confirmButtonText: 'Renombrar',
-    cancelButtonText: 'Cancelar',
-    background: '#1a1a2e', color: '#e2e8f0',
-    confirmButtonColor: '#6366f1',
+    title: 'Nuevo nombre', input: 'text', inputValue: currentName,
+    showCancelButton: true, confirmButtonText: 'Renombrar', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1',
     inputValidator: v => !v || v === currentName ? 'Ingresa un nombre diferente' : null
   });
   if (!newName) return;
   const endpoint = type === 'folder' ? `/storage/folder/${id}/rename` : `/storage/file/${id}/rename`;
-  const d = await api('PATCH', endpoint, { name: newName });
+  const d = await apiCall('PATCH', endpoint, { name: newName });
   if (d) { toast('Renombrado'); folderHierarchy = null; browseFolder(currentFolderId); }
 }
 
-// ── Custom request ──
-async function customRequest() {
-  const method = $('custom-method').value;
-  const path = $('custom-path').value.trim();
-  let body = $('custom-body').value.trim();
-  if (body) { try { body = JSON.parse(body); } catch { return log('JSON inválido', 'log-err'); } }
-  await api(method, path, body || null);
-}
-
-// ── Sidebar toggle ──
+// ── Sidebar & Explorer Toggle ──
 function toggleSidebar() {
   const sb = $('sidebar');
   const btn = $('sidebar-toggle');
   sb.classList.toggle('collapsed');
   const collapsed = sb.classList.contains('collapsed');
-  btn.innerHTML = collapsed ? '&lt;' : '&gt;';
-  btn.style.right = collapsed ? '0' : '380px';
+  btn.innerHTML = collapsed
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
+  btn.style.right = collapsed ? '0' : '360px';
 }
+
+function toggleExplorer() {
+  const panel = $('panel-explorer');
+  const btn = $('explorer-toggle');
+  panel.classList.toggle('collapsed');
+  btn.style.display = panel.classList.contains('collapsed') ? 'flex' : 'none';
+}
+
+// ── Console resize (drag handle) ──
+(function() {
+  const handle = $('console-resize');
+  const console_ = $('console-area');
+  let startY, startH;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startY = e.clientY;
+    startH = console_.offsetHeight;
+    handle.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    const delta = startY - e.clientY;
+    const newH = Math.max(80, Math.min(window.innerHeight * 0.6, startH + delta));
+    console_.style.height = newH + 'px';
+  }
+
+  function onUp() {
+    handle.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+})();
+
+// ── Keyboard shortcut: Ctrl+Enter to send ──
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    sendRequest();
+  }
+});
 
 // ── Init ──
 updateStatus().then(async () => {
