@@ -323,4 +323,26 @@ class FolderService {
             return $folder->update(["name" => $newName]);
         });
     }
+
+    public function getFolderHierarchy(string $userId): array{
+        $folders = Folder::where("user_id", $userId)
+            ->whereNull("deleted_at")
+            ->orderBy("name")
+            ->get(["id", "parent_id", "name"]);
+
+        $byParent = $folders->groupBy("parent_id");
+
+        $build = function ($parentId) use ($byParent, &$build){
+            $children = $byParent->get($parentId, collect());
+            return $children->map(function ($f) use ($byParent, $build){
+                return [
+                    "id" => $f->id,
+                    "name" => $f->name,
+                    "children" => $build($f->id),
+                ];
+            })->values()->all();
+        };
+
+        return $build(null);
+    }
 }

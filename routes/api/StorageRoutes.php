@@ -18,6 +18,8 @@ Route::prefix("/storage")->middleware("auth:api")->group(function (){
         Route::delete("/{folder_id}", [StorageController::class, "deleteFolder"]);
         Route::post("/{folder_id}/restore", [StorageController::class, "restoreFolder"]);
     });
+
+    Route::get("/folders/hierarchy", [StorageController::class, "getFolderHierarchy"]);
    
     Route::prefix("/file")->group(function (){
         Route::get("/check-name", [StorageController::class, "checkFileName"]);

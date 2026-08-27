@@ -10,7 +10,6 @@ use App\utils\HttpError;
 use App\utils\LoggerHelper;
 use App\Dtos\FolderDto;
 use App\utils\ExceptionCustom\StorageException;
-use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use App\utils\ExceptionCustom\CarpetaMovimientoPropioException;
 use App\utils\ExceptionCustom\CarpetaCicloException;
@@ -37,8 +36,6 @@ class StorageController extends Controller
     private function handleStorageErrors(callable $action){
         try{
             return $action();
-        }catch(NombreDuplicadoException $e){
-            abort(409, $e->getMessage());
         }catch(CarpetaEliminadaException $e){
             abort(400, $e->getMessage());
         }catch(CarpetaMovimientoPropioException $e){
@@ -91,7 +88,7 @@ class StorageController extends Controller
         path: "/api/storage/file",
         tags: ["Files"],
         summary: "Subir archivo",
-        description: "Sube un nuevo archivo al almacenamiento.",
+        description: "Sube un nuevo archivo al almacenamiento. Si ya existe un archivo con el mismo nombre en la ubicación, se renombra automáticamente con sufijo (n). Se recomienda usar el endpoint check-name antes de subir para mostrar al usuario el nombre sugerido.",
         security: [["bearerAuth" => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -425,6 +422,26 @@ class StorageController extends Controller
                     $folder,
                     $request->destination_folder_id
                 )
+            );
+        });
+    }
+
+    #[OA\Get(
+        path: "/api/storage/folders/hierarchy",
+        tags: ["Folders"],
+        summary: "Jerarquía de carpetas",
+        description: "Retorna todas las carpetas del usuario en estructura de árbol. Solo carpetas, sin archivos.",
+        security: [["bearerAuth" => []]],
+        responses: [
+            new OA\Response(response: 200, description: "Árbol de carpetas"),
+            new OA\Response(response: 401, description: "No autenticado"),
+        ]
+    )]
+    public function getFolderHierarchy(){
+        return $this->handleStorageErrors(function(){
+            $user = Security::isOwner();
+            return response()->json(
+                $this->folderService->getFolderHierarchy($user->id)
             );
         });
     }

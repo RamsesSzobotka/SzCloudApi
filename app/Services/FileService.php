@@ -6,7 +6,6 @@ use App\Models\File;
 use App\Models\FileVersion;
 use App\Models\FileActivity;
 use App\Models\User;
-use App\utils\ExceptionCustom\NombreDuplicadoException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
@@ -37,23 +36,13 @@ class FileService {
                     ->firstOrFail();
             }
 
-            $conflictQuery = File::where("user_id", $user->id)
-                ->where("original_name", $file->getClientOriginalName())
-                ->whereNull("deleted_at");
-
-            if ($folderId !== null) {
-                $conflictQuery->where("folder_id", $folderId);
-            } else {
-                $conflictQuery->whereNull("folder_id");
-            }
-
-            $conflict = $conflictQuery->exists();
-
-            if ($conflict){
-                throw new NombreDuplicadoException("archivo");
-            }
-
+            $originalName = $file->getClientOriginalName();
             $extension = $file->getClientOriginalExtension();
+
+            $originalName = self::findAvailableName(
+                $user->id, $folderId, $originalName, $extension ?: null
+            );
+
             $storageName = Str::uuid() . '.' . $extension;
             $storagePath = "users/{$user->id}/files/{$storageName}";
             $hash = hash_file('sha256', $file->getRealPath());
@@ -64,7 +53,7 @@ class FileService {
             $fileRecord = File::create([
                 "user_id" => $user->id,
                 "folder_id" => $folderId,
-                "original_name" => $file->getClientOriginalName(),
+                "original_name" => $originalName,
                 "storage_name" => $storageName,
                 "storage_path" => $storagePath,
                 "mime_type" => $file->getMimeType(),

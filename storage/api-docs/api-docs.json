@@ -357,7 +357,7 @@
                     "Files"
                 ],
                 "summary": "Subir archivo",
-                "description": "Sube un nuevo archivo al almacenamiento.",
+                "description": "Sube un nuevo archivo al almacenamiento. Si ya existe un archivo con el mismo nombre en la ubicación, se renombra automáticamente con sufijo (n). Se recomienda usar el endpoint check-name antes de subir para mostrar al usuario el nombre sugerido.",
                 "operationId": "95dee6ee53f80eaa9824204ec676c246",
                 "requestBody": {
                     "required": true,
@@ -909,6 +909,29 @@
                     },
                     "404": {
                         "description": "Carpeta no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/folders/hierarchy": {
+            "get": {
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Jerarquía de carpetas",
+                "description": "Retorna todas las carpetas del usuario en estructura de árbol. Solo carpetas, sin archivos.",
+                "operationId": "95c5165e864b884d4c18d35ef28129f0",
+                "responses": {
+                    "200": {
+                        "description": "Árbol de carpetas"
+                    },
+                    "401": {
+                        "description": "No autenticado"
                     }
                 },
                 "security": [
