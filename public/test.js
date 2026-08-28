@@ -54,6 +54,7 @@ const ICONS = {
   permDelete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   remove: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
 };
 
 function getFileIcon(ext, mime) {
@@ -295,9 +296,11 @@ function switchReqTab(tab, el) {
   $('req-body-pane').style.display = tab === 'body' ? '' : 'none';
   $('req-headers-pane').style.display = tab === 'headers' ? '' : 'none';
   $('req-auth-pane').style.display = tab === 'auth' ? '' : 'none';
+  $('req-helpers-pane').style.display = tab === 'helpers' ? '' : 'none';
   if (tab === 'body') $('req-body-pane').classList.add('active');
   if (tab === 'headers') $('req-headers-pane').classList.add('active');
   if (tab === 'auth') $('req-auth-pane').classList.add('active');
+  if (tab === 'helpers') $('req-helpers-pane').classList.add('active');
 }
 
 // ── Body Type ──
@@ -626,6 +629,7 @@ function showContextMenu(e, type, id, name, isTrash) {
     items = `
       <div class="context-menu-item" onclick="hideContextMenu();downloadFileBrowser('${id}')">${ICONS.download} Descargar</div>
       <div class="context-menu-item" onclick="hideContextMenu();openShareModal('${id}','${esc(name)}')">${ICONS.share} Compartir</div>
+      <div class="context-menu-item" onclick="hideContextMenu();promptReplaceFile('${id}')">${ICONS.upload} Reemplazar archivo</div>
       <div class="context-menu-item" onclick="hideContextMenu();showDetail('file','${id}')">${ICONS.info} Propiedades</div>
       <div class="context-menu-sep"></div>
       <div class="context-menu-item" onclick="hideContextMenu();promptRename('file','${id}','${esc(name)}')">${ICONS.edit} Renombrar</div>
@@ -710,6 +714,7 @@ function renderProps(tab) {
   if (isFile) {
     acts += `<button style="background:var(--accent);color:#fff" onclick="closeProps();downloadFileBrowser('${d.id}')">${ICONS.download} Descargar</button>`;
     acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();openShareModal('${d.id}','${esc(d.original_name)}')">${ICONS.share} Compartir</button>`;
+    acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptReplaceFile('${d.id}')">${ICONS.upload} Reemplazar</button>`;
     acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptRename('file','${d.id}','${esc(d.original_name)}')">${ICONS.edit} Renombrar</button>`;
     acts += `<button style="background:var(--danger);color:#fff" onclick="closeProps();deleteItem('file','${d.id}')">${ICONS.trash} Eliminar</button>`;
   } else {
@@ -777,12 +782,26 @@ function closeMoveModal() { $('move-overlay').classList.add('hidden'); }
 
 // ── Versions / Activity ──
 async function showVersions(id) {
-  const d = await apiCall('GET', `/storage/file/${id}/versions`);
+  const [d, check] = await Promise.all([
+    apiCall('GET', `/storage/file/${id}/versions`),
+    apiCall('GET', `/storage/file/${id}/versions/check`)
+  ]);
   if (!d) return;
   const versions = Array.isArray(d) ? d : [];
   let html = versions.length === 0 ? '<div style="color:var(--text-muted)">No hay versiones</div>' :
     versions.map((v, i) => `<div style="padding:0.3rem 0;font-size:0.78rem;border-bottom:1px solid var(--border)">v${i+1} — ${fmtDate(v.created_at)} — ${fmtSize(v.size)}</div>`).join('');
-  Swal.fire({ title: 'Versiones', html: `<div style="text-align:left;max-height:300px;overflow-y:auto">${html}</div>`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+  let actions = '';
+  if (check?.has_older) actions += `<button class="swal-action-btn" onclick="restoreVersion('${id}','back')">Restaurar versión anterior</button>`;
+  if (check?.has_newer) actions += `<button class="swal-action-btn" onclick="restoreVersion('${id}','front')">Rehacer a versión nueva</button>`;
+  Swal.fire({ title: 'Versiones', html: `<div style="text-align:left;max-height:260px;overflow-y:auto">${html}</div>${actions}`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+}
+
+async function restoreVersion(id, dir) {
+  const d = await apiCall('POST', `/storage/file/${id}/versions/restore-${dir}`);
+  if (!d) return toast(dir === 'back' ? 'No hay versión anterior disponible' : 'No hay versión posterior disponible');
+  Swal.close();
+  toast('Versión restaurada');
+  showVersions(id);
 }
 
 async function showActivity(id) {
@@ -791,7 +810,19 @@ async function showActivity(id) {
   const acts = Array.isArray(d) ? d : [];
   let html = acts.length === 0 ? '<div style="color:var(--text-muted)">Sin actividad</div>' :
     acts.map(a => `<div style="padding:0.3rem 0;font-size:0.78rem;border-bottom:1px solid var(--border)">${fmtDate(a.created_at)} — ${esc(a.action || a.type || JSON.stringify(a))}</div>`).join('');
-  Swal.fire({ title: 'Actividad', html: `<div style="text-align:left;max-height:300px;overflow-y:auto">${html}</div>`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+  const actions = `<div style="display:flex;gap:0.35rem;margin-top:0.6rem">
+    <button class="swal-action-btn secondary flex" onclick="restoreActivity('${id}','back')">Deshacer</button>
+    <button class="swal-action-btn secondary flex" onclick="restoreActivity('${id}','front')">Rehacer</button>
+  </div>`;
+  Swal.fire({ title: 'Actividad', html: `<div style="text-align:left;max-height:260px;overflow-y:auto">${html}</div>${actions}`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+}
+
+async function restoreActivity(id, dir) {
+  const d = await apiCall('POST', `/storage/file/${id}/activity/restore-${dir}`);
+  if (!d) return toast(dir === 'back' ? 'No hay acción para deshacer' : 'No hay acción para rehacer');
+  Swal.close();
+  toast('Acción restaurada');
+  showActivity(id);
 }
 
 // ── Browser Actions ──
@@ -935,6 +966,329 @@ async function generateShareLink() {
 function copyShareLink() {
   const url = $('share-link-url').value;
   navigator.clipboard.writeText(url).then(() => toast('Link copiado'));
+}
+
+// ═══════════════════════════════════════════
+//  PERFIL
+// ═══════════════════════════════════════════
+
+async function openProfileModal() {
+  $('profile-name').value = '';
+  $('profile-last-name').value = '';
+  $('profile-pass').value = '';
+  $('profile-new-pass').value = '';
+  const me = await apiCall('GET', '/me');
+  if (me?.name) $('profile-name').value = me.name;
+  if (me?.last_name) $('profile-last-name').value = me.last_name;
+  $('profile-modal').classList.remove('hidden');
+}
+
+function closeProfileModal() { $('profile-modal').classList.add('hidden'); }
+
+async function updateProfile() {
+  const name = $('profile-name').value.trim();
+  if (!name) return toast('El nombre es obligatorio');
+  const d = await apiCall('PUT', '/user', { name, last_name: $('profile-last-name').value.trim() });
+  if (d) { toast('Perfil actualizado'); updateStatus(); }
+}
+
+async function updatePassword() {
+  const password = $('profile-pass').value;
+  const newPassword = $('profile-new-pass').value;
+  if (!password || !newPassword) return toast('Completá ambos campos');
+  if (newPassword.length < 8) return toast('La nueva contraseña debe tener al menos 8 caracteres');
+  const d = await apiCall('PATCH', '/user', { password, newPassword });
+  if (d === false) return toast('Contraseña actual incorrecta');
+  if (d) { toast('Contraseña cambiada'); $('profile-pass').value = ''; $('profile-new-pass').value = ''; }
+}
+
+async function promptDeleteAccount() {
+  const r1 = await Swal.fire({
+    title: '¿Eliminar tu cuenta?',
+    html: 'Se borrarán tu cuenta y <strong>todos tus archivos</strong> de forma permanente.<br>Esta acción no se puede deshacer.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Continuar', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+  });
+  if (!r1.isConfirmed) return;
+  const { value } = await Swal.fire({
+    title: 'Confirmación final',
+    input: 'text', inputPlaceholder: 'Escribí ELIMINAR',
+    inputValidator: v => v === 'ELIMINAR' ? null : 'Debés escribir exactamente "ELIMINAR"',
+    showCancelButton: true, confirmButtonText: 'Eliminar cuenta', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#ef4444', cancelButtonColor: '#6366f1'
+  });
+  if (value !== 'ELIMINAR') return;
+  const d = await apiCall('DELETE', '/user');
+  if (d) {
+    toast('Cuenta eliminada');
+    closeProfileModal();
+    currentView = 'files'; currentFolderId = null;
+    $('file-grid').innerHTML = ''; $('pagination').innerHTML = '';
+    $('storage-info-bar').style.display = 'none';
+    updateStatus();
+  }
+}
+
+// ═══════════════════════════════════════════
+//  EXPANSIONES
+// ═══════════════════════════════════════════
+
+const fmtMoney = c => `$${(c / 100).toFixed(2)}`;
+
+async function openExpansionsModal() {
+  const list = $('expansions-list');
+  $('expansions-modal').classList.remove('hidden');
+  list.innerHTML = '<div class="spinner" style="display:block;margin:1rem auto"></div>';
+  const d = await apiCall('GET', '/expansions');
+  if (!d) { list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:1rem">No se pudieron cargar las expansiones</div>'; return; }
+  const plans = Array.isArray(d) ? d : [];
+  if (!plans.length) { list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:1rem">No hay expansiones disponibles</div>'; return; }
+  list.innerHTML = plans.map(p => `
+    <div class="expansion-item">
+      <div class="expansion-info">
+        <div class="expansion-name">${esc(p.name)}</div>
+        <div class="expansion-meta">${fmtSize(p.storage_bytes)} · ${fmtMoney(p.price_cents)}</div>
+      </div>
+      <div class="expansion-actions">
+        <button class="expansion-detail" onclick="expansionDetail(${p.id})">Detalle</button>
+        <button class="expansion-buy" onclick="buyExpansion(${p.id},'${esc(p.name)}')">Comprar</button>
+      </div>
+    </div>`).join('');
+}
+
+function closeExpansionsModal() { $('expansions-modal').classList.add('hidden'); }
+
+async function expansionDetail(id) {
+  const d = await apiCall('GET', `/expansions/${id}`);
+  if (!d) return;
+  const rows = Object.entries(d || {}).map(([k, v]) => `<div style="padding:0.2rem 0;font-size:0.72rem">${esc(k)}: ${esc(v ?? '—')}</div>`).join('');
+  Swal.fire({ title: 'Expansión', html: `<div style="text-align:left">${rows}</div>`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+}
+
+async function buyExpansion(id, name) {
+  const r = await Swal.fire({
+    title: `Comprar "${name}"`, text: '¿Confirmás la compra de este plan?',
+    icon: 'question', showCancelButton: true, confirmButtonText: 'Comprar', cancelButtonText: 'Cancelar',
+    background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1', cancelButtonColor: '#6366f1'
+  });
+  if (!r.isConfirmed) return;
+  const d = await apiCall('POST', `/expansions/${id}/buy`);
+  if (!d) return;
+  loadStorageInfo();
+  Swal.fire({ title: 'Comprada', html: `Nuevo límite de almacenamiento: <strong>${fmtSize(d.storage_limit)}</strong>`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+}
+
+// ═══════════════════════════════════════════
+//  PROBAR LINK COMPARTIDO
+// ═══════════════════════════════════════════
+
+function openShareTestModal() {
+  $('share-test-link').value = '';
+  $('share-test-config').style.display = 'none';
+  $('share-test-modal').classList.remove('hidden');
+  $('share-test-link').focus();
+}
+
+function closeShareTestModal() { $('share-test-modal').classList.add('hidden'); }
+
+function shareInput() {
+  const raw = $('share-test-link').value.trim();
+  if (!raw) return null;
+  let token = raw;
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw);
+    token = u.pathname.split('/').filter(Boolean).pop() || '';
+  } catch {
+    token = raw.split('/').filter(Boolean).pop() || raw;
+  }
+  const link = /^https?:\/\//i.test(raw) ? raw
+    : raw.startsWith('/') ? location.origin + raw
+    : location.origin + '/share/' + token;
+  return { token, link };
+}
+
+async function shareTestConfig() {
+  const input = shareInput();
+  if (!input) return toast('Pegá un link compartido');
+  const d = await apiCall('GET', `/share/${input.token}/config`);
+  if (!d) return;
+  const c = d.config || d;
+  $('share-test-config').innerHTML =
+    `<div class="config-row"><span class="config-label">Válido</span><span class="config-value">${c.is_valid ? 'Sí' : 'No'}</span></div>` +
+    `<div class="config-row"><span class="config-label">Archivo</span><span class="config-value">${esc(c.file_name || '—')}</span></div>` +
+    `<div class="config-row"><span class="config-label">Requiere contraseña</span><span class="config-value">${c.requires_password ? 'Sí' : 'No'}</span></div>` +
+    `<div class="config-row"><span class="config-label">Expira</span><span class="config-value">${c.expires_at ? new Date(c.expires_at).toLocaleString('es-AR') : 'Sin expiración'}</span></div>` +
+    `<div class="config-row"><span class="config-label">Máx. descargas</span><span class="config-value">${c.max_downloads ?? 'Sin límite'}</span></div>` +
+    `<div class="config-row"><span class="config-label">Descargas</span><span class="config-value">${c.download_count ?? 0}</span></div>`;
+  $('share-test-config').style.display = '';
+}
+
+function shareTestOpen() {
+  const input = shareInput();
+  if (!input) return toast('Pegá un link compartido');
+  window.open(input.link, '_blank');
+}
+
+// ═══════════════════════════════════════════
+//  HELPERS DE ALMACENAMIENTO
+// ═══════════════════════════════════════════
+
+function showHelperResult(title, rows) {
+  const el = $('helper-result');
+  el.style.display = '';
+  el.innerHTML = `<div style="font-size:0.75rem;font-weight:600;margin-bottom:0.4rem">${esc(title)}</div>` +
+    rows.map(([l, v]) => `<div class="config-row"><span class="config-label">${esc(l)}</span><span class="config-value">${esc(String(v ?? '—'))}</span></div>`).join('');
+}
+
+// ── Storage Picker (elige archivo/carpeta del propio storage) ──
+let pickerMode = 'file';
+let pickerStack = [];
+let pickerOnPick = null;
+let pickerTimer = null;
+
+function openFilePicker(onPick) { openPickerModal('file', onPick); }
+function openFolderPicker(onPick) { openPickerModal('folder', onPick); }
+
+function openPickerModal(mode, onPick) {
+  pickerMode = mode;
+  pickerOnPick = onPick;
+  pickerStack = [];
+  $('picker-title').textContent = mode === 'file' ? 'Seleccionar archivo' : 'Seleccionar carpeta (ubicación)';
+  const nameInput = $('picker-name-input');
+  nameInput.style.display = mode === 'folder' ? '' : 'none';
+  if (mode === 'folder') nameInput.value = '';
+  $('picker-modal').classList.remove('hidden');
+  loadPickerFolder(null);
+}
+
+function closePickerModal() {
+  clearTimeout(pickerTimer);
+  $('picker-modal').classList.add('hidden');
+  pickerOnPick = null;
+}
+
+async function loadPickerFolder(folderId) {
+  const list = $('picker-list');
+  list.innerHTML = '<div class="spinner" style="display:block;margin:1rem auto"></div>';
+  const path = folderId ? `/storage/folder/content/${folderId}` : '/storage/folder/content';
+  const d = await apiCall('GET', path);
+  if (!d) { list.innerHTML = '<div class="empty-msg">Error cargando contenido</div>'; return; }
+  renderPickerList(d);
+}
+
+function renderPickerList(d) {
+  const folders = d.folders || [];
+  const files = d.files || [];
+  const folderMode = pickerMode === 'folder';
+  let html = '';
+  if (folderMode) {
+    html += `<div class="picker-item picker-select" onclick="pickerSelect()">${ICONS.folder} Raíz (sin carpeta)<span class="picker-hint">clic: elegir</span></div>`;
+  }
+  if (pickerStack.length) {
+    html += `<div class="picker-item picker-navigable" onclick="pickerBack()">${ICONS.arrowLeft} ..</div>`;
+  }
+  folders.forEach(f => {
+    const actions = folderMode
+      ? `onclick="pickerFolderClick('${f.id}')" ondblclick="pickerOpen('${f.id}')"`
+      : `onclick="pickerOpen('${f.id}')"`;
+    html += `<div class="picker-item picker-navigable${folderMode ? ' picker-select' : ''}" ${actions}>${ICONS.folder} ${esc(f.name)}<span class="picker-hint">${folderMode ? 'clic: elegir · doble clic: abrir' : 'abrir'}</span></div>`;
+  });
+  files.forEach(f => {
+    const icon = getFileIcon((f.extension || '').replace('.', ''), f.mime_type);
+    html += folderMode
+      ? `<div class="picker-item picker-disabled">${icon} ${esc(f.original_name)}</div>`
+      : `<div class="picker-item picker-select" onclick="pickerSelect('${f.id}')">${icon} ${esc(f.original_name)}<span class="picker-hint">clic: elegir</span></div>`;
+  });
+  $('picker-list').innerHTML = html || '<div class="empty-msg">Carpeta vacía</div>';
+}
+
+function pickerOpen(id) {
+  clearTimeout(pickerTimer);
+  if (id === (pickerStack[pickerStack.length - 1] || null)) return;
+  pickerStack.push(id);
+  loadPickerFolder(id);
+}
+
+function pickerBack() {
+  clearTimeout(pickerTimer);
+  pickerStack.pop();
+  loadPickerFolder(pickerStack[pickerStack.length - 1] || null);
+}
+
+function pickerFolderClick(id) {
+  clearTimeout(pickerTimer);
+  pickerTimer = setTimeout(() => pickerSelect(id), 250);
+}
+
+function pickerSelect(id = null) {
+  clearTimeout(pickerTimer);
+  const cb = pickerOnPick;
+  const name = $('picker-name-input').value.trim();
+  closePickerModal();
+  cb(id, name);
+}
+
+function quickVerify() {
+  $('verify-size-input').value = 1;
+  $('verify-size-unit').value = '1048576';
+  $('verify-modal').classList.remove('hidden');
+  $('verify-size-input').focus();
+  $('verify-size-input').select();
+}
+
+function closeVerifyModal() { $('verify-modal').classList.add('hidden'); }
+
+async function quickVerifyRun() {
+  const mult = parseInt($('verify-size-unit').value) || 1;
+  const bytes = Math.round(parseFloat($('verify-size-input').value) * mult);
+  if (!bytes || bytes < 1) return toast('Ingresá un tamaño válido (≥ 1)');
+  const d = await apiCall('POST', '/storage/verify', { file_size: bytes });
+  if (!d) return;
+  closeVerifyModal();
+  showHelperResult('Verificar espacio', [['Subida permitida', d.allowed ? 'Sí' : 'No']]);
+}
+
+async function quickCheckName() {
+  openFolderPicker(async (parentId, name) => {
+    if (!name) return toast('Ingresá un nombre');
+    const params = new URLSearchParams({ name });
+    if (parentId) params.set('parent_id', parentId);
+    const d = await apiCall('GET', `/storage/folder/check-name?${params}`);
+    if (!d) return;
+    const c = d.conflicting_folder;
+    const rows = c
+      ? [['El nombre existe', 'Sí'], ['Carpeta en conflicto', `${c.name} (ID ${c.id})`], ['Elementos', c.content_count ?? 0]]
+      : [['El nombre existe', d.exists ? 'Sí' : 'No']];
+    showHelperResult('Check nombre', rows);
+  });
+}
+
+async function quickVersionCheck() {
+  openFilePicker(async fileId => {
+    const d = await apiCall('GET', `/storage/file/${fileId}/versions/check`);
+    if (!d) return;
+    showHelperResult('Versiones', [
+      ['Version actual', d.current_version],
+      ['Total de versiones', d.total_versions ?? d.total_version],
+      ['Hay anterior', d.has_older ? 'Sí' : 'No'],
+      ['Hay posterior', d.has_newer ? 'Sí' : 'No']
+    ]);
+  });
+}
+
+// ── Replace file ──
+async function promptReplaceFile(id) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.onchange = async () => {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append('file', f);
+    const d = await apiCall('PUT', `/storage/file/${id}`, fd, true);
+    if (d) { toast('Archivo reemplazado'); loadStorageInfo(); browseFolder(currentFolderId); }
+  };
+  input.click();
 }
 
 // ── Sidebar & Explorer Toggle ──

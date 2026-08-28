@@ -118,6 +118,7 @@
       <div class="req-tab active" onclick="switchReqTab('body',this)">Body</div>
       <div class="req-tab" onclick="switchReqTab('headers',this)">Headers</div>
       <div class="req-tab" onclick="switchReqTab('auth',this)">Auth</div>
+      <div class="req-tab" onclick="switchReqTab('helpers',this)">Helpers</div>
     </div>
 
     <div class="req-tab-content">
@@ -153,6 +154,19 @@
             <button onclick="doRefresh()">POST /refresh</button>
           </div>
         </div>
+      </div>
+
+      <!-- Helpers Tab -->
+      <div class="req-pane" id="req-helpers-pane" style="display:none">
+        <div class="helpers-grid">
+          <button class="quick-btn" onclick="openProfileModal()">Perfil</button>
+          <button class="quick-btn" onclick="openExpansionsModal()">Expansiones</button>
+          <button class="quick-btn" onclick="openShareTestModal()">Probar link</button>
+          <button class="quick-btn" onclick="quickVerify()">Verificar</button>
+          <button class="quick-btn" onclick="quickCheckName()">Check nombre</button>
+          <button class="quick-btn" onclick="quickVersionCheck()">Chequear vers.</button>
+        </div>
+        <div id="helper-result" style="display:none"></div>
       </div>
     </div>
 
@@ -303,6 +317,131 @@
     <div class="modal-actions-row">
       <button class="btn-secondary" onclick="closeShareModal()">Cerrar</button>
       <button class="btn-primary" id="share-generate-btn" onclick="generateShareLink()">Generar link</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile Modal -->
+<div id="profile-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal profile-panel">
+    <div class="modal-header-row">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Perfil</h3>
+      <button class="modal-close" onclick="closeProfileModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="profile-body">
+      <div class="modal-section">
+        <h4>Actualizar datos</h4>
+        <label>Nombre</label>
+        <input id="profile-name" type="text">
+        <label>Apellido</label>
+        <input id="profile-last-name" type="text">
+        <div class="profile-actions">
+          <button class="btn-primary" onclick="updateProfile()">Actualizar nombre</button>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h4>Cambiar contraseña</h4>
+        <label>Contraseña actual</label>
+        <input id="profile-pass" type="password">
+        <label>Nueva contraseña (mín. 8)</label>
+        <input id="profile-new-pass" type="password">
+        <div class="profile-actions">
+          <button class="btn-primary" onclick="updatePassword()">Cambiar contraseña</button>
+        </div>
+      </div>
+      <div class="modal-section danger-zone">
+        <h4>Eliminar cuenta</h4>
+        <p>Borrará tu cuenta y todos tus archivos de forma permanente. Esta acción no se puede deshacer.</p>
+        <div class="profile-actions">
+          <button class="btn-danger" onclick="promptDeleteAccount()">Eliminar cuenta</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Expansions Modal -->
+<div id="expansions-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeExpansionsModal()">
+  <div class="modal expansions-panel">
+    <div class="modal-header-row">
+      <h3>Expansiones</h3>
+      <button class="modal-close" onclick="closeExpansionsModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="expansions-body" id="expansions-list"></div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeExpansionsModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share Test Modal -->
+<div id="share-test-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeShareTestModal()">
+  <div class="modal share-test-panel">
+    <div class="modal-header-row">
+      <h3>Probar link compartido</h3>
+      <button class="modal-close" onclick="closeShareTestModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="share-test-body">
+      <label>Link compartido</label>
+      <input id="share-test-link" type="text" placeholder="https://dominio.com/share/ab12...">
+      <div class="share-test-actions">
+        <button class="btn-primary" onclick="shareTestConfig()">Ver configuración</button>
+        <button class="btn-primary" onclick="shareTestOpen()">Probar link</button>
+      </div>
+      <div id="share-test-config" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Storage Picker Modal -->
+<div id="picker-modal" class="modal-overlay hidden" onclick="if(event.target===this)closePickerModal()">
+  <div class="modal picker-panel">
+    <div class="modal-header-row">
+      <h3 id="picker-title">Seleccionar archivo</h3>
+      <button class="modal-close" onclick="closePickerModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="picker-body">
+      <input id="picker-name-input" type="text" placeholder="Nombre a verificar" style="display:none">
+      <div id="picker-list" class="picker-list"></div>
+    </div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closePickerModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Verify Modal -->
+<div id="verify-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeVerifyModal()">
+  <div class="modal verify-panel">
+    <div class="modal-header-row">
+      <h3>Verificar espacio</h3>
+      <button class="modal-close" onclick="closeVerifyModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="share-test-body">
+      <label>Tamaño</label>
+      <div class="verify-size-row">
+        <input id="verify-size-input" type="number" min="1" value="1">
+        <select id="verify-size-unit">
+          <option value="1">Bytes</option>
+          <option value="1024">KB</option>
+          <option value="1048576">MB</option>
+          <option value="1073741824">GB</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeVerifyModal()">Cancelar</button>
+      <button class="btn-primary" onclick="quickVerifyRun()">Verificar</button>
     </div>
   </div>
 </div>
