@@ -15,7 +15,7 @@ class ShareLinkService {
         $token = bin2hex(random_bytes(32));
 
         $config["file_id"] = $file->id;
-        $config["token_hash"] = Hash::sha256($token);
+        $config["token_hash"] = hash('sha256',$token);
 
         if (!empty($config["password"])) {
             $config["password_hash"] = Hash::make($config["password"]);
@@ -31,7 +31,7 @@ class ShareLinkService {
     }
 
     public function getShareLinkData(string $userId, string $token): array {
-        $link = ShareLink::where("token_hash", Hash::sha256($token))
+        $link = ShareLink::where("token_hash", hash('sha256',$token))
             ->whereHas("file", fn($q) => $q->where("user_id", $userId))
             ->with("file:id,name")
             ->first();
@@ -54,7 +54,7 @@ class ShareLinkService {
     }
 
     public function getShareLinkConfig(string $token): array {
-        $link = ShareLink::where("token_hash", Hash::sha256($token))
+        $link = ShareLink::where("token_hash", hash('sha256',$token))
             ->with("file:id,name")
             ->first();
 
@@ -74,7 +74,7 @@ class ShareLinkService {
 
     public function getShareLink(string $token, ?string $password = null): string {
         $file = DB::transaction(function () use ($token, $password) {
-            $link = ShareLink::where("token_hash", Hash::sha256($token))->lockForUpdate()->first();
+            $link = ShareLink::where("token_hash", hash('sha256',$token))->lockForUpdate()->first();
 
             if (!$link) {
                 throw new ModelNotFoundException("Link compartido no encontrado");
