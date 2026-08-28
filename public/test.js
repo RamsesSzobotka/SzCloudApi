@@ -103,7 +103,11 @@ async function updateStatus() {
   const btnLogin = $('btn-login');
   const btnLogout = $('btn-logout');
   try {
-    const res = await fetch(`${API}/me`, { credentials: 'same-origin' });
+    let res = await fetch(`${API}/me`, { credentials: 'same-origin' });
+    if (res.status === 401) {
+      const refreshed = await tryRefresh();
+      if (refreshed) res = await fetch(`${API}/me`, { credentials: 'same-origin' });
+    }
     if (res.ok) {
       b.innerHTML = '<span class="status-dot"></span>conectado'; b.className = 'status connected';
       if (btnLogin) btnLogin.style.display = 'none';
@@ -160,13 +164,27 @@ async function doLogout() {
 //  API CALL HELPER (for file browser)
 // ═══════════════════════════════════════════
 
-async function apiCall(method, path, body = null, isForm = false) {
+async function tryRefresh() {
+  try {
+    log('> POST /refresh', 'log-info');
+    const res = await fetch(`${API}/refresh`, { method: 'POST', credentials: 'same-origin' });
+    if (res.ok) { log('[200] Token renovado', 'log-ok'); return true; }
+    log(`[${res.status}] Refresh fallido`, 'log-err');
+    return false;
+  } catch (e) { log(`Error: ${e.message}`, 'log-err'); return false; }
+}
+
+async function apiCall(method, path, body = null, isForm = false, retried = false) {
   const opts = { method, headers: {}, credentials: 'same-origin' };
   if (body && !isForm) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   else if (body && isForm) { opts.body = body; }
   log(`> ${method} ${path}`, 'log-info');
   try {
     const res = await fetch(`${API}${path}`, opts);
+    if (res.status === 401 && !retried && !['/login', '/register', '/refresh'].includes(path)) {
+      const refreshed = await tryRefresh();
+      if (refreshed) return apiCall(method, path, body, isForm, true);
+    }
     const ct = res.headers.get('content-type') || '';
     const data = ct.includes('json') ? await res.json() : await res.text();
     if (!res.ok) { logJson(`[${res.status}]`, data, false); return null; }
@@ -352,6 +370,9 @@ async function loadStorageInfo() {
 async function browseFolder(folderId, page = 1) {
   currentView = 'files';
   currentFolderId = folderId;
+  const trashActions = $('trash-actions');
+  trashActions.style.display = 'none';
+  trashActions.innerHTML = '';
   const path = folderId ? `/storage/folder/content/${folderId}` : '/storage/folder/content';
   const d = await apiCall('GET', `${path}?page=${page}&per_page=20`);
   if (!d) return toast('No autenticado o error');
@@ -405,14 +426,17 @@ function renderTrash(data) {
   if (folders.length === 0 && files.length === 0) {
     grid.innerHTML = '<div class="empty-msg">La papelera está vacía</div>';
     $('pagination').innerHTML = '';
+    const ta = $('trash-actions');
+    ta.style.display = 'none';
+    ta.innerHTML = '';
     $('storage-info-bar').style.display = 'none';
     return;
   }
 
-  // Show empty trash button in storage bar area
-  const bar = $('storage-info-bar');
-  bar.style.display = 'block';
-  bar.innerHTML = `
+  // Empty trash button/count lives in #trash-actions — never overwrite #storage-info-bar's children
+  $('storage-info-bar').style.display = 'block';
+  $('trash-actions').style.display = 'block';
+  $('trash-actions').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:0.7rem;color:var(--text-dim)">${folders.length + files.length} elemento(s) en papelera</span>
       <button onclick="emptyTrash()" style="background:var(--danger);color:#fff;border:none;padding:0.25rem 0.6rem;border-radius:var(--radius);font-size:0.68rem;cursor:pointer;font-family:inherit">Vaciar papelera</button>
@@ -792,11 +816,12 @@ async function confirmUpload() {
   if (!pendingUploadFile) return;
   const file = pendingUploadFile;
   closeUploadModal();
-  const fd = new FormData();
-  fd.append('file', file);
-  if (currentFolderId) fd.append('folder_id', currentFolderId);
-  const d = await apiCall('POST', '/storage/file', fd, true);
-  if (d) { toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId); }
+  try {
+    await UploadProgress.upload(file, currentFolderId);
+    toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId);
+  } catch (e) {
+    if (e.message !== 'Cancelado') toast('Error: ' + e.message);
+  }
 }
 
 async function uploadFileBrowser() {
@@ -816,11 +841,12 @@ async function uploadFileBrowser() {
       `Se subirá como: <span class="suggested-name">${esc(check.suggested_name)}</span>`;
     $('upload-modal').classList.remove('hidden');
   } else {
-    const fd = new FormData();
-    fd.append('file', file);
-    if (currentFolderId) fd.append('folder_id', currentFolderId);
-    const d = await apiCall('POST', '/storage/file', fd, true);
-    if (d) { toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId); }
+    try {
+      await UploadProgress.upload(file, currentFolderId);
+      toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId);
+    } catch (e) {
+      if (e.message !== 'Cancelado') toast('Error: ' + e.message);
+    }
   }
   $('upload-file-input').value = '';
 }
@@ -914,20 +940,16 @@ function copyShareLink() {
 // ── Sidebar & Explorer Toggle ──
 function toggleSidebar() {
   const sb = $('sidebar');
-  const btn = $('sidebar-toggle');
-  sb.classList.toggle('collapsed');
-  const collapsed = sb.classList.contains('collapsed');
-  btn.innerHTML = collapsed
-    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
-  btn.style.right = collapsed ? '0' : '360px';
+  const collapsed = sb.classList.toggle('collapsed');
+  sb.style.width = collapsed ? '0' : '';
+  $('btn-toggle-sidebar').classList.toggle('active', !collapsed);
 }
 
 function toggleExplorer() {
   const panel = $('panel-explorer');
-  const btn = $('explorer-toggle');
-  panel.classList.toggle('collapsed');
-  btn.style.display = panel.classList.contains('collapsed') ? 'flex' : 'none';
+  const collapsed = panel.classList.toggle('collapsed');
+  panel.style.width = collapsed ? '0' : '';
+  $('btn-toggle-explorer').classList.toggle('active', !collapsed);
 }
 
 // ── Console resize (drag handle) ──
@@ -958,6 +980,42 @@ function toggleExplorer() {
   }
 })();
 
+// ── Panel resize (vertical drag handles) ──
+(function() {
+  const rows = [
+    ['explorer-resize', 'panel-explorer', 1, 180, 420],
+    ['sidebar-resize', 'sidebar', -1, 200, 720]
+  ];
+  for (const [handleId, panelId, dir, minW, maxW] of rows) {
+    const handle = $(handleId);
+    const panel = $(panelId);
+    let startX, startW;
+
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = panel.offsetWidth;
+      panel.style.transition = 'none';
+      handle.classList.add('dragging');
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    function onMove(e) {
+      const delta = (e.clientX - startX) * dir;
+      const newW = Math.max(minW, Math.min(maxW, startW + delta));
+      panel.style.width = newW + 'px';
+    }
+
+    function onUp() {
+      panel.style.transition = '';
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+  }
+})();
+
 // ── Keyboard shortcut: Ctrl+Enter to send ──
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -967,6 +1025,8 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Init ──
+$('btn-toggle-explorer').classList.add('active');
+$('btn-toggle-sidebar').classList.add('active');
 updateStatus().then(async () => {
   const b = $('status-badge');
   if (b.classList.contains('connected')) {

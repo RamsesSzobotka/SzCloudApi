@@ -18,6 +18,14 @@
     <span id="status-badge" class="status disconnected"><span class="status-dot"></span>sin token</span>
   </div>
   <div class="header-actions">
+    <button class="header-btn" id="btn-toggle-explorer" onclick="toggleExplorer()" title="Mostrar/ocultar archivos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Archivos
+    </button>
+    <button class="header-btn" id="btn-toggle-sidebar" onclick="toggleSidebar()" title="Mostrar/ocultar respuesta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      Response
+    </button>
     <button class="header-btn" id="btn-login" onclick="openLoginModal()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
       Login
@@ -32,11 +40,6 @@
 <!-- ═══ MAIN LAYOUT: 3 columns ═══ -->
 <div class="layout">
 
-  <!-- Explorer toggle (visible when collapsed) -->
-  <button class="explorer-toggle" id="explorer-toggle" onclick="toggleExplorer()" title="Abrir explorador">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-  </button>
-
   <!-- ═══ LEFT: FILE EXPLORER ═══ -->
   <div class="panel-explorer" id="panel-explorer">
     <div class="panel-explorer-header">
@@ -44,8 +47,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         Archivos
       </span>
-      <button class="icon-btn" onclick="toggleExplorer()" title="Colapsar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/></svg>
+      <button class="icon-btn" onclick="toggleExplorer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
@@ -74,10 +77,12 @@
       <div class="storage-bar-bg"><div class="storage-bar-fill" id="storage-fill" style="width:0%"></div></div>
       <div class="storage-bar-text" id="storage-text">Cargando...</div>
     </div>
+    <div id="trash-actions" style="display:none"></div>
 
     <div id="file-grid" class="file-grid"></div>
     <div id="pagination" class="pagination"></div>
   </div>
+  <div id="explorer-resize" class="v-resize"></div>
 
   <!-- ═══ CENTER: API TESTER ═══ -->
   <div class="panel-tester">
@@ -166,11 +171,9 @@
       <div id="log"></div>
     </div>
   </div>
+  <div id="sidebar-resize" class="v-resize"></div>
 
   <!-- ═══ RIGHT: RESPONSE ═══ -->
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle response">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-  </button>
   <div class="sidebar" id="sidebar">
     <div class="response-area">
       <div class="response-header">
@@ -178,6 +181,9 @@
         <span id="res-status" class="res-status"></span>
         <span id="res-time" class="res-time"></span>
         <button class="icon-btn" onclick="clearResponse()" title="Limpiar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+        <button class="icon-btn" onclick="toggleSidebar()" title="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -308,6 +314,7 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="upload-progress.js"></script>
 <script src="test.js"></script>
 </body>
 </html>

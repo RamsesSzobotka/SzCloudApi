@@ -57,6 +57,7 @@ input, select, textarea { font-family: inherit; }
   transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.35rem;
 }
 .header-btn:hover { border-color: var(--border-hover); color: var(--text); }
+.header-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .header-btn svg { width: 14px; height: 14px; }
 .header-btn.danger-btn { border-color: rgba(239,68,68,0.3); color: var(--danger); }
 .header-btn.danger-btn:hover { border-color: var(--danger); background: rgba(239,68,68,0.1); }
@@ -287,6 +288,13 @@ input, select, textarea { font-family: inherit; }
   transition: background 0.15s; flex-shrink: 0;
 }
 .console-resize:hover, .console-resize.dragging { background: var(--accent); }
+
+/* ── Panel resize (vertical drag handles) ── */
+.v-resize {
+  width: 4px; cursor: col-resize; background: transparent;
+  transition: background 0.15s; flex-shrink: 0;
+}
+.v-resize:hover, .v-resize.dragging { background: var(--accent); }
 .console-area {
   border-top: 1px solid var(--border); display: flex; flex-direction: column;
   height: 180px; min-height: 80px; flex-shrink: 0;
@@ -308,29 +316,6 @@ input, select, textarea { font-family: inherit; }
   transition: width 0.25s ease, min-width 0.25s ease; overflow: hidden;
 }
 .sidebar.collapsed { width: 0; min-width: 0; border-left: none; overflow: hidden; }
-.explorer-toggle {
-  position: fixed; top: 100px; left: 0;
-  width: 18px; height: 26px; border-radius: 0 4px 4px 0;
-  background: var(--surface); border: 1px solid var(--border); border-left: none;
-  color: var(--text-dim); cursor: pointer; z-index: 10;
-  display: none; align-items: center; justify-content: center;
-  transition: background 0.15s, color 0.15s;
-}
-.explorer-toggle:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
-.explorer-toggle svg { width: 12px; height: 12px; }
-.panel-explorer.collapsed ~ .explorer-toggle,
-.panel-explorer.collapsed + .explorer-toggle { display: flex; }
-
-.sidebar-toggle {
-  position: fixed; top: 100px; right: 360px;
-  width: 18px; height: 26px; border-radius: 4px 0 0 4px;
-  background: var(--surface); border: 1px solid var(--border); border-right: none;
-  color: var(--text-dim); cursor: pointer; z-index: 10;
-  display: flex; align-items: center; justify-content: center;
-  transition: right 0.25s ease, background 0.15s, color 0.15s;
-}
-.sidebar-toggle:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
-.sidebar-toggle svg { width: 12px; height: 12px; }
 .log-ok { color: var(--success); }
 .log-err { color: var(--danger); }
 .log-info { color: var(--text-dim); }
@@ -486,6 +471,4 @@ input, select, textarea { font-family: inherit; }
   .panel-explorer.collapsed { max-height: 0; }
   .sidebar { width: 100%; min-width: 0; height: 40vh; border-left: none; border-top: 1px solid var(--border); }
   .sidebar.collapsed { height: 0; }
-  .sidebar-toggle { top: auto; bottom: 10px; right: 10px; }
-  .explorer-toggle { top: auto; bottom: 10px; left: 0; }
 }
