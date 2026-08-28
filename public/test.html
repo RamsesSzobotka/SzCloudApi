@@ -265,6 +265,42 @@
   </div>
 </div>
 
+<!-- Share Link Modal -->
+<div id="share-overlay" class="modal-overlay hidden" onclick="if(event.target===this)closeShareModal()">
+  <div class="modal share-panel">
+    <div class="modal-header-row">
+      <h3 id="share-title">Compartir archivo</h3>
+      <button class="modal-close" onclick="closeShareModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="share-body">
+      <div id="share-form">
+        <label>Expiración (opcional)</label>
+        <input id="share-expires" type="datetime-local">
+        <label>Máximo de descargas (opcional)</label>
+        <input id="share-max-downloads" type="number" min="1" placeholder="Sin límite">
+        <label>Contraseña (opcional)</label>
+        <input id="share-password" type="password" placeholder="Sin contraseña">
+      </div>
+      <div id="share-result" style="display:none">
+        <label>Link de compartición</label>
+        <div class="share-link-row">
+          <input id="share-link-url" type="text" readonly>
+          <button class="share-copy-btn" onclick="copyShareLink()" title="Copiar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <div id="share-meta" class="share-meta"></div>
+      </div>
+    </div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeShareModal()">Cerrar</button>
+      <button class="btn-primary" id="share-generate-btn" onclick="generateShareLink()">Generar link</button>
+    </div>
+  </div>
+</div>
+
 <!-- Context Menu -->
 <div id="context-menu" class="context-menu"></div>
 

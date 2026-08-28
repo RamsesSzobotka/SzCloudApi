@@ -429,6 +429,19 @@ input, select, textarea { font-family: inherit; }
 .move-folder.selected { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); }
 .move-folder svg { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
 
+/* Share modal */
+.share-panel { min-width: 380px; max-width: 440px; }
+.share-body { padding: 0.75rem 1rem; }
+.share-link-row { display: flex; gap: 0.35rem; margin-top: 0.15rem; }
+.share-link-row input { flex: 1; }
+.share-copy-btn {
+  background: var(--accent); border: none; color: #fff; padding: 0.4rem 0.5rem;
+  border-radius: var(--radius); cursor: pointer; transition: opacity 0.15s;
+}
+.share-copy-btn:hover { opacity: 0.85; }
+.share-copy-btn svg { width: 14px; height: 14px; }
+.share-meta { font-size: 0.68rem; color: var(--text-dim); margin-top: 0.35rem; }
+
 /* ── Context Menu ── */
 .context-menu {
   position: fixed; background: var(--surface); border: 1px solid var(--border);

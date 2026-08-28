@@ -53,6 +53,7 @@ const ICONS = {
   close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   permDelete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   remove: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
 };
 
 function getFileIcon(ext, mime) {
@@ -600,6 +601,7 @@ function showContextMenu(e, type, id, name, isTrash) {
   } else {
     items = `
       <div class="context-menu-item" onclick="hideContextMenu();downloadFileBrowser('${id}')">${ICONS.download} Descargar</div>
+      <div class="context-menu-item" onclick="hideContextMenu();openShareModal('${id}','${esc(name)}')">${ICONS.share} Compartir</div>
       <div class="context-menu-item" onclick="hideContextMenu();showDetail('file','${id}')">${ICONS.info} Propiedades</div>
       <div class="context-menu-sep"></div>
       <div class="context-menu-item" onclick="hideContextMenu();promptRename('file','${id}','${esc(name)}')">${ICONS.edit} Renombrar</div>
@@ -683,6 +685,7 @@ function renderProps(tab) {
   let acts = '';
   if (isFile) {
     acts += `<button style="background:var(--accent);color:#fff" onclick="closeProps();downloadFileBrowser('${d.id}')">${ICONS.download} Descargar</button>`;
+    acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();openShareModal('${d.id}','${esc(d.original_name)}')">${ICONS.share} Compartir</button>`;
     acts += `<button style="background:transparent;color:var(--text);border:1px solid var(--border)" onclick="closeProps();promptRename('file','${d.id}','${esc(d.original_name)}')">${ICONS.edit} Renombrar</button>`;
     acts += `<button style="background:var(--danger);color:#fff" onclick="closeProps();deleteItem('file','${d.id}')">${ICONS.trash} Eliminar</button>`;
   } else {
@@ -856,6 +859,56 @@ async function promptRename(type, id, currentName) {
   const endpoint = type === 'folder' ? `/storage/folder/${id}/rename` : `/storage/file/${id}/rename`;
   const d = await apiCall('PATCH', endpoint, { name: newName });
   if (d) { toast('Renombrado'); folderHierarchy = null; browseFolder(currentFolderId); }
+}
+
+// ── Share Link ──
+let shareFileId = null;
+
+function openShareModal(fileId, fileName) {
+  shareFileId = fileId;
+  $('share-title').innerHTML = ICONS.share + ' Compartir "' + fileName + '"';
+  $('share-expires').value = '';
+  $('share-max-downloads').value = '';
+  $('share-password').value = '';
+  $('share-form').style.display = '';
+  $('share-result').style.display = 'none';
+  $('share-generate-btn').style.display = '';
+  $('share-overlay').classList.remove('hidden');
+}
+
+function closeShareModal() {
+  $('share-overlay').classList.add('hidden');
+  shareFileId = null;
+}
+
+async function generateShareLink() {
+  if (!shareFileId) return;
+  const body = {};
+  const expires = $('share-expires').value;
+  if (expires) body.expires_at = expires.replace('T', 'T') + ':00';
+  const maxDl = $('share-max-downloads').value;
+  if (maxDl) body.max_downloads = parseInt(maxDl);
+  const pass = $('share-password').value;
+  if (pass) body.password = pass;
+
+  const d = await apiCall('POST', `/share/file/${shareFileId}`, body);
+  if (!d?.shareLink) return;
+
+  const link = d.shareLink;
+  $('share-link-url').value = link.url;
+  let meta = '';
+  if (link.expires_at) meta += `Expira: ${fmtDate(link.expires_at)}`;
+  if (link.max_downloads) meta += `${meta ? ' · ' : ''}Max descargas: ${link.max_downloads}`;
+  if (link.requires_password) meta += `${meta ? ' · ' : ''}Protegido con contraseña`;
+  $('share-meta').textContent = meta;
+  $('share-form').style.display = 'none';
+  $('share-result').style.display = '';
+  $('share-generate-btn').style.display = 'none';
+}
+
+function copyShareLink() {
+  const url = $('share-link-url').value;
+  navigator.clipboard.writeText(url).then(() => toast('Link copiado'));
 }
 
 // ── Sidebar & Explorer Toggle ──
