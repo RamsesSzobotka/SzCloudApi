@@ -12,7 +12,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use App\utils\MinIOHelper;
 use \App\utils\ExceptionCustom\StorageException;
-use Aws\S3\S3Client;
 
 class FileService {
 
@@ -45,10 +44,10 @@ class FileService {
 
             $storageName = Str::uuid() . '.' . $extension;
             $storagePath = "users/{$user->id}/files/{$storageName}";
-            $hash = hash_file('sha256', $file->getRealPath());
-            $content = file_get_contents($file->getRealPath());
 
-            MinIOHelper::put($storagePath, $content);
+            $stream = fopen($file->getRealPath(), 'r');
+            [$ok, $hash] = MinIOHelper::putStreamWithHash($storagePath, $stream);
+            rewind($stream);
 
             $fileRecord = File::create([
                 "user_id" => $user->id,
@@ -63,7 +62,8 @@ class FileService {
             ]);
 
             $this->storageUsageService->addFile($user, $fileSize);
-            $this->addFileVersion($fileRecord, $content);
+            $this->addFileVersion($fileRecord, $stream);
+            fclose($stream);
             $this->addFileActivity($fileRecord, 'create', null, $fileRecord->only(['original_name', 'folder_id', 'storage_name']));
 
             return $fileRecord;
@@ -113,17 +113,17 @@ class FileService {
             }
 
             $oldVersion = $file->versions()->orderBy('version', 'desc')->first();
-            $oldContent = $this->readVersionContent($file, $oldVersion);
+            $oldStream = $this->readVersionContent($file, $oldVersion);
             $oldSize = $file->size;
 
             $extension = $newFile->getClientOriginalExtension();
             $storageName = Str::uuid() . '.' . $extension;
             $userId = $file->user_id;
             $storagePath = "users/{$userId}/files/{$storageName}";
-            $hash = hash_file('sha256', $newFile->getRealPath());
-            $content = file_get_contents($newFile->getRealPath());
 
-            MinIOHelper::put($storagePath, $content);
+            $stream = fopen($newFile->getRealPath(), 'r');
+            [$ok, $hash] = MinIOHelper::putStreamWithHash($storagePath, $stream);
+            fclose($stream);
 
             $file->update([
                 "storage_name" => $storageName,
@@ -134,13 +134,13 @@ class FileService {
                 "hash" => $hash,
             ]);
 
-            $this->addFileVersion($file, $oldContent);
+            $this->addFileVersion($file, $oldStream);
 
             $this->storageUsageService->deleteFile($file->user, $oldSize);
             $this->storageUsageService->addFile($file->user, $fileSize);
 
             $this->deleteOldVersion($file);
-            $this->addFileActivity($file, 'update', ["hash" => $oldContent ? hash('sha256', $oldContent) : null], ["hash" => $hash]);
+            $this->addFileActivity($file, 'update', ["hash" => $oldVersion?->hash], ["hash" => $hash]);
 
             return $file;
         });
@@ -150,6 +150,8 @@ class FileService {
         foreach ($file->versions as $version) {
             MinIOHelper::delete($version->storage_path);
         }
+
+        MinIOHelper::delete($file->storage_path);
 
         $user = User::findOrFail($file->user_id);
         $this->storageUsageService->deleteFile($user, $file->size);
@@ -239,7 +241,7 @@ class FileService {
         return $this->updateFile($file, ["original_name" => $available]);
     }
 
-    public function addFileVersion(File $file, string $content){
+    public function addFileVersion(File $file, $resource){
         $lastVersion = $file->versions()->max('version') ?? 0;
         $newVersion = $lastVersion + 1;
 
@@ -249,7 +251,7 @@ class FileService {
         $storageName = "{$fileId}_v{$newVersion}.{$ext}";
         $storagePath = "users/{$userId}/files/{$storageName}";
 
-        MinIOHelper::put($storagePath, $content);
+        MinIOHelper::putStream($storagePath, $resource);
 
         return FileVersion::create([
             "file_id" => $fileId,
@@ -363,13 +365,13 @@ class FileService {
                 return null;
             }
 
-            $restoredContent = $this->readVersionContent($file, $targetVersion);
+            $restoredStream = $this->readVersionContent($file, $targetVersion);
             $userId = $file->user_id;
             $ext = $file->extension;
             $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
             $newStoragePath = "users/{$userId}/files/{$newStorageName}";
 
-            MinIOHelper::put($newStoragePath, $restoredContent);
+            MinIOHelper::putStream($newStoragePath, $restoredStream);
 
             $file->update([
                 "storage_name" => $newStorageName,
@@ -392,13 +394,13 @@ class FileService {
                 return null;
             }
 
-            $restoredContent = $this->readVersionContent($file, $targetVersion);
+            $restoredStream = $this->readVersionContent($file, $targetVersion);
             $userId = $file->user_id;
             $ext = $file->extension;
             $newStorageName = "{$file->id}_vrestore_" . Str::uuid() . ".{$ext}";
             $newStoragePath = "users/{$userId}/files/{$newStorageName}";
 
-            MinIOHelper::put($newStoragePath, $restoredContent);
+            MinIOHelper::putStream($newStoragePath, $restoredStream);
 
             $file->update([
                 "storage_name" => $newStorageName,
@@ -428,7 +430,7 @@ class FileService {
         return $match ? $match->version : ($file->versions()->max('version') ?? 1);
     }
 
-    private function readVersionContent(File $file, FileVersion $version): string {
-        return MinIOHelper::get($version->storage_path);
+    private function readVersionContent(File $file, FileVersion $version) {
+        return MinIOHelper::getStream($version->storage_path);
     }
 }

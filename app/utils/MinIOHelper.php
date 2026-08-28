@@ -12,8 +12,34 @@ class MinIOHelper {
         return Storage::disk('minio')->put($path, $content);
     }
 
+    public static function putStream(string $path, $resource): bool {
+        return Storage::disk('minio')->writeStream($path, $resource);
+    }
+
     public static function get(string $path): string {
         return Storage::disk('minio')->get($path);
+    }
+
+    public static function getStream(string $path) {
+        return Storage::disk('minio')->readStream($path);
+    }
+
+    /**
+     * Stream a resource to MinIO while computing SHA-256 in one pass.
+     * Returns [success, hash].
+     */
+    public static function putStreamWithHash(string $path, $resource): array {
+        $context = hash_init('sha256');
+        $tmp = fopen('php://temp', 'r+');
+
+        stream_copy_to_stream($resource, $tmp);
+        hash_update_stream($context, $tmp);
+        rewind($tmp);
+
+        Storage::disk('minio')->writeStream($path, $tmp);
+        fclose($tmp);
+
+        return [true, hash_final($context)];
     }
 
     public static function delete(string $path): bool {
