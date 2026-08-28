@@ -33,7 +33,7 @@ class ShareLinkService {
     public function getShareLinkData(string $userId, string $token): array {
         $link = ShareLink::where("token_hash", hash('sha256',$token))
             ->whereHas("file", fn($q) => $q->where("user_id", $userId))
-            ->with("file:id,name")
+            ->with("file:id,original_name")
             ->first();
 
         if (!$link) {
@@ -48,14 +48,14 @@ class ShareLinkService {
             "download_count" => $link->download_count,
             "requires_password" => $link->password_hash !== null,
             "is_valid" => $link->isValid(),
-            "file_name" => $link->file->name ?? null,
+            "file_name" => $link->file->original_name ?? null,
             "created_at" => $link->created_at?->toIso8601String(),
         ];
     }
 
     public function getShareLinkConfig(string $token): array {
         $link = ShareLink::where("token_hash", hash('sha256',$token))
-            ->with("file:id,name")
+            ->with("file:id,original_name")
             ->first();
 
         if (!$link) {
@@ -68,7 +68,7 @@ class ShareLinkService {
             "max_downloads" => $link->max_downloads,
             "download_count" => $link->download_count,
             "is_valid" => $link->isValid(),
-            "file_name" => $link->file->name ?? null,
+            "file_name" => $link->file->original_name ?? null,
         ];
     }
 
