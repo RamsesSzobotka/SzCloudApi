@@ -307,7 +307,7 @@
                     "Folders"
                 ],
                 "summary": "Crear carpeta",
-                "description": "Crea una nueva carpeta en la ubicación especificada. Si ya existe una carpeta con el mismo nombre, retorna la existente sin crear duplicado. Se recomienda usar el endpoint check-name antes de crear para verificar conflictos.",
+                "description": "Crea una nueva carpeta en la ubicación especificada. Si ya existe una carpeta con el mismo nombre, retorna la existente sin crear duplicado. El nombre no puede contener los caracteres: / \\ : \" ' < > |. Se recomienda usar el endpoint check-name antes de crear para verificar conflictos.",
                 "operationId": "6dc7a6e6d61cc44928573c469b96eaf7",
                 "requestBody": {
                     "required": true,
@@ -319,6 +319,7 @@
                                 ],
                                 "properties": {
                                     "name": {
+                                        "description": "Nombre de la carpeta. No puede contener: / \\ : \" ' < > |",
                                         "type": "string",
                                         "example": "Mis documentos"
                                     },
@@ -342,6 +343,9 @@
                     },
                     "401": {
                         "description": "No autenticado"
+                    },
+                    "422": {
+                        "description": "El nombre contiene caracteres no permitidos"
                     }
                 },
                 "security": [
@@ -357,7 +361,7 @@
                     "Files"
                 ],
                 "summary": "Subir archivo",
-                "description": "Sube un nuevo archivo al almacenamiento. Si ya existe un archivo con el mismo nombre en la ubicación, se renombra automáticamente con sufijo (n). Se recomienda usar el endpoint check-name antes de subir para mostrar al usuario el nombre sugerido.",
+                "description": "Sube un nuevo archivo al almacenamiento. Si ya existe un archivo con el mismo nombre en la ubicación, se renombra automáticamente con sufijo (n). El nombre del archivo no puede contener los caracteres: / \\ : \" ' < > |. Se recomienda usar el endpoint check-name antes de subir para mostrar al usuario el nombre sugerido.",
                 "operationId": "95dee6ee53f80eaa9824204ec676c246",
                 "requestBody": {
                     "required": true,
@@ -369,7 +373,7 @@
                                 ],
                                 "properties": {
                                     "file": {
-                                        "description": "Archivo a subir",
+                                        "description": "Archivo a subir. El nombre no puede contener: / \\ : \" ' < > |",
                                         "type": "string",
                                         "format": "binary"
                                     },
@@ -393,6 +397,9 @@
                     },
                     "401": {
                         "description": "No autenticado"
+                    },
+                    "422": {
+                        "description": "El nombre del archivo contiene caracteres no permitidos"
                     }
                 },
                 "security": [
@@ -947,7 +954,7 @@
                     "Files"
                 ],
                 "summary": "Renombrar archivo",
-                "description": "Cambia el nombre de un archivo existente. Si ya existe un archivo con el mismo nombre, se agrega sufijo (n) automáticamente.",
+                "description": "Cambia el nombre de un archivo existente. Si ya existe un archivo con el mismo nombre, se agrega sufijo (n) automáticamente. El nombre no puede contener los caracteres: / \\ : \" ' < > |.",
                 "operationId": "c60ae2aa9104d49ca5e10c7245758523",
                 "parameters": [
                     {
@@ -971,6 +978,7 @@
                                 ],
                                 "properties": {
                                     "name": {
+                                        "description": "Nuevo nombre. No puede contener: / \\ : \" ' < > |",
                                         "type": "string",
                                         "example": "nuevo_nombre.pdf"
                                     }
@@ -989,6 +997,9 @@
                     },
                     "404": {
                         "description": "Archivo no encontrado"
+                    },
+                    "422": {
+                        "description": "El nombre contiene caracteres no permitidos"
                     }
                 },
                 "security": [
@@ -1004,7 +1015,7 @@
                     "Folders"
                 ],
                 "summary": "Renombrar carpeta",
-                "description": "Cambia el nombre de una carpeta existente. Si ya existe una carpeta con el mismo nombre, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente.",
+                "description": "Cambia el nombre de una carpeta existente. Si ya existe una carpeta con el mismo nombre, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente. El nombre no puede contener los caracteres: / \\ : \" ' < > |.",
                 "operationId": "bddd59f6325c085501b5008b40859429",
                 "parameters": [
                     {
@@ -1028,6 +1039,7 @@
                                 ],
                                 "properties": {
                                     "name": {
+                                        "description": "Nuevo nombre. No puede contener: / \\ : \" ' < > |",
                                         "type": "string",
                                         "example": "Nuevo nombre"
                                     }
@@ -1046,6 +1058,9 @@
                     },
                     "404": {
                         "description": "Carpeta no encontrada"
+                    },
+                    "422": {
+                        "description": "El nombre contiene caracteres no permitidos"
                     }
                 },
                 "security": [

@@ -8,6 +8,7 @@ use App\Http\Requests\Storage\StoreFileRequest;
 use App\Http\Requests\Storage\StoreFolderRequest;
 use App\utils\HttpError;
 use App\utils\LoggerHelper;
+use App\utils\NameSanitizer;
 use App\Dtos\FolderDto;
 use App\utils\ExceptionCustom\StorageException;
 use App\utils\ExceptionCustom\CarpetaEliminadaException;
@@ -60,14 +61,14 @@ class StorageController extends Controller
         path: "/api/storage/folder",
         tags: ["Folders"],
         summary: "Crear carpeta",
-        description: "Crea una nueva carpeta en la ubicación especificada. Si ya existe una carpeta con el mismo nombre, retorna la existente sin crear duplicado. Se recomienda usar el endpoint check-name antes de crear para verificar conflictos.",
+        description: "Crea una nueva carpeta en la ubicación especificada. Si ya existe una carpeta con el mismo nombre, retorna la existente sin crear duplicado. El nombre no puede contener los caracteres: / \\ : \" ' < > |. Se recomienda usar el endpoint check-name antes de crear para verificar conflictos.",
         security: [["bearerAuth" => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
                 required: ["name"],
                 properties: [
-                    new OA\Property(property: "name", type: "string", example: "Mis documentos"),
+                    new OA\Property(property: "name", type: "string", example: "Mis documentos", description: "Nombre de la carpeta. No puede contener: / \\ : \" ' < > |"),
                     new OA\Property(property: "parent_id", type: "string", format: "uuid", nullable: true, description: "ID de la carpeta padre. Null para raíz."),
                 ]
             )
@@ -75,10 +76,14 @@ class StorageController extends Controller
         responses: [
             new OA\Response(response: 200, description: "Carpeta creada (o existente si ya hay una con el mismo nombre)"),
             new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 422, description: "El nombre contiene caracteres no permitidos"),
         ]
     )]
     public function postFolder(StoreFolderRequest $req){
         return $this->handleStorageErrors(function() use ($req){
+            if (!NameSanitizer::isValid($req->name)) {
+                abort(422, 'El nombre contiene caracteres no permitidos');
+            }
             $user = Security::isOwner();
             return $this->folderService->addFolder(new FolderDto($user->id, $req->name, $req->parent_id));
         });
@@ -88,7 +93,7 @@ class StorageController extends Controller
         path: "/api/storage/file",
         tags: ["Files"],
         summary: "Subir archivo",
-        description: "Sube un nuevo archivo al almacenamiento. Si ya existe un archivo con el mismo nombre en la ubicación, se renombra automáticamente con sufijo (n). Se recomienda usar el endpoint check-name antes de subir para mostrar al usuario el nombre sugerido.",
+        description: "Sube un nuevo archivo al almacenamiento. Si ya existe un archivo con el mismo nombre en la ubicación, se renombra automáticamente con sufijo (n). El nombre del archivo no puede contener los caracteres: / \\ : \" ' < > |. Se recomienda usar el endpoint check-name antes de subir para mostrar al usuario el nombre sugerido.",
         security: [["bearerAuth" => []]],
         requestBody: new OA\RequestBody(
             required: true,
@@ -97,7 +102,7 @@ class StorageController extends Controller
                 schema: new OA\Schema(
                     required: ["file"],
                     properties: [
-                        new OA\Property(property: "file", type: "string", format: "binary", description: "Archivo a subir"),
+                        new OA\Property(property: "file", type: "string", format: "binary", description: "Archivo a subir. El nombre no puede contener: / \\ : \" ' < > |"),
                         new OA\Property(property: "folder_id", type: "string", format: "uuid", nullable: true, description: "ID de la carpeta destino. Null para raíz."),
                     ]
                 )
@@ -106,10 +111,15 @@ class StorageController extends Controller
         responses: [
             new OA\Response(response: 201, description: "Archivo subido"),
             new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 422, description: "El nombre del archivo contiene caracteres no permitidos"),
         ]
     )]
     public function postFile(StoreFileRequest $req){
         return $this->handleStorageErrors(function() use ($req){
+            $fileName = $req->file('file')->getClientOriginalName();
+            if (!NameSanitizer::isValid($fileName)) {
+                abort(422, 'El nombre del archivo contiene caracteres no permitidos');
+            }
             $user = Security::isOwner();
             if ($req->folder_id !== null) {
                 $this->folderService->getFolder($user->id, $req->folder_id);
@@ -450,7 +460,7 @@ class StorageController extends Controller
         path: "/api/storage/file/{file_id}/rename",
         tags: ["Files"],
         summary: "Renombrar archivo",
-        description: "Cambia el nombre de un archivo existente. Si ya existe un archivo con el mismo nombre, se agrega sufijo (n) automáticamente.",
+        description: "Cambia el nombre de un archivo existente. Si ya existe un archivo con el mismo nombre, se agrega sufijo (n) automáticamente. El nombre no puede contener los caracteres: / \\ : \" ' < > |.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -460,7 +470,7 @@ class StorageController extends Controller
             content: new OA\JsonContent(
                 required: ["name"],
                 properties: [
-                    new OA\Property(property: "name", type: "string", example: "nuevo_nombre.pdf"),
+                    new OA\Property(property: "name", type: "string", example: "nuevo_nombre.pdf", description: "Nuevo nombre. No puede contener: / \\ : \" ' < > |"),
                 ]
             )
         ),
@@ -468,10 +478,14 @@ class StorageController extends Controller
             new OA\Response(response: 200, description: "Archivo renombrado"),
             new OA\Response(response: 401, description: "No autenticado"),
             new OA\Response(response: 404, description: "Archivo no encontrado"),
+            new OA\Response(response: 422, description: "El nombre contiene caracteres no permitidos"),
         ]
     )]
     public function renameFile(string $file_id, RenameRequest $request){
         return $this->handleStorageErrors(function() use ($file_id, $request){
+            if (!NameSanitizer::isValid($request->name)) {
+                abort(422, 'El nombre contiene caracteres no permitidos');
+            }
             $user = Security::isOwner();
 
             $file = $this->fileService->getFile($user->id, $file_id);
@@ -486,7 +500,7 @@ class StorageController extends Controller
         path: "/api/storage/folder/{folder_id}/rename",
         tags: ["Folders"],
         summary: "Renombrar carpeta",
-        description: "Cambia el nombre de una carpeta existente. Si ya existe una carpeta con el mismo nombre, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente.",
+        description: "Cambia el nombre de una carpeta existente. Si ya existe una carpeta con el mismo nombre, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente. El nombre no puede contener los caracteres: / \\ : \" ' < > |.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_id", in: "path", required: true, description: "ID de la carpeta (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
@@ -496,7 +510,7 @@ class StorageController extends Controller
             content: new OA\JsonContent(
                 required: ["name"],
                 properties: [
-                    new OA\Property(property: "name", type: "string", example: "Nuevo nombre"),
+                    new OA\Property(property: "name", type: "string", example: "Nuevo nombre", description: "Nuevo nombre. No puede contener: / \\ : \" ' < > |"),
                 ]
             )
         ),
@@ -504,10 +518,14 @@ class StorageController extends Controller
             new OA\Response(response: 200, description: "Carpeta renombrada"),
             new OA\Response(response: 401, description: "No autenticado"),
             new OA\Response(response: 404, description: "Carpeta no encontrada"),
+            new OA\Response(response: 422, description: "El nombre contiene caracteres no permitidos"),
         ]
     )]
     public function renameFolder(string $folder_id, RenameRequest $request){
         return $this->handleStorageErrors(function() use ($folder_id, $request){
+            if (!NameSanitizer::isValid($request->name)) {
+                abort(422, 'El nombre contiene caracteres no permitidos');
+            }
             $user = Security::isOwner();
 
             $folder = $this->folderService->getFolder($user->id, $folder_id);

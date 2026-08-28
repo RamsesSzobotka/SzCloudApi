@@ -81,6 +81,18 @@ function fmtSize(b) {
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function fmtDate(s) { if (!s) return ''; try { return new Date(s).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' }); } catch { return s; } }
 
+// ── Name validation (mirrors NameSanitizer.php) ──
+const INVALID_NAME_CHARS = ['/', '\\', ':', '"', "'", '<', '>', '|'];
+function isValidName(name) {
+  const found = INVALID_NAME_CHARS.filter(c => name.includes(c));
+  return { valid: found.length === 0, invalidChars: found };
+}
+function showInvalidNameError(name) {
+  const { invalidChars } = isValidName(name);
+  const chars = invalidChars.map(c => `<code>${esc(c)}</code>`).join(' ');
+  Swal.fire({ icon: 'error', title: 'Nombre no válido', html: `No se pueden usar los caracteres: ${chars}`, background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+}
+
 // ═══════════════════════════════════════════
 //  STATUS & AUTH
 // ═══════════════════════════════════════════
@@ -759,6 +771,7 @@ async function showActivity(id) {
 async function createFolderBrowser() {
   const name = $('new-folder-name').value.trim();
   if (!name) return toast('Ingrese un nombre');
+  if (!isValidName(name).valid) return showInvalidNameError(name);
   const body = { name };
   if (currentFolderId) body.parent_id = currentFolderId;
   const d = await apiCall('POST', '/storage/folder', body);
@@ -832,7 +845,12 @@ async function promptRename(type, id, currentName) {
     title: 'Nuevo nombre', input: 'text', inputValue: currentName,
     showCancelButton: true, confirmButtonText: 'Renombrar', cancelButtonText: 'Cancelar',
     background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1',
-    inputValidator: v => !v || v === currentName ? 'Ingresa un nombre diferente' : null
+    inputValidator: v => {
+      if (!v || v === currentName) return 'Ingresa un nombre diferente';
+      const { valid, invalidChars } = isValidName(v);
+      if (!valid) return `Caracteres no permitidos: ${invalidChars.join(' ')}`;
+      return null;
+    }
   });
   if (!newName) return;
   const endpoint = type === 'folder' ? `/storage/folder/${id}/rename` : `/storage/file/${id}/rename`;
