@@ -10,7 +10,7 @@ use OpenApi\Attributes as OA;
 #[OA\Info(
     title: 'SzCloudApi',
     version: '1.0.0',
-    description: 'API para almacenamiento en la nube — gestión de archivos, carpetas y papelera.'
+    description: 'API para almacenamiento en la nube — gestión de archivos, carpetas, papelera, etc.'
 )]
 #[OA\Server(url: '/', description: 'Servidor de desarrollo')]
 #[OA\SecurityScheme(
