@@ -15,8 +15,4 @@ class Expansion extends Model
         "price_cents",
     ];
 
-    public function userExpansions()
-    {
-        return $this->hasMany(UserExpansion::class);
-    }
 }

@@ -14,7 +14,6 @@ return new class extends Migration
             $table->string("action", 50);
             $table->string("resource_type", 50)->nullable();
             $table->uuid("resource_id")->nullable();
-           // $table->addColumn('inet', 'ip_address')->nullable();
             $table->text("user_agent")->nullable();
             $table->jsonb("metadata")->nullable();
             $table->timestamp("created_at");

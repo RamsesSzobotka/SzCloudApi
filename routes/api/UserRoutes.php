@@ -8,6 +8,5 @@ Route::prefix("/user")->middleware("auth:api")->group(function (){
     Route::patch("/",[UserController::class, "patchPassword"]);
     Route::delete("/",[UserController::class, "deleteUser"]);
 
-    #aun en desarrollo
-    //Route::get("/{id}",[UserController::class, "getUser"]);
+
 });

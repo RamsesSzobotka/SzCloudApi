@@ -48,24 +48,9 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(File::class);
     }
 
-    public function auditLogs()
-    {
-        return $this->hasMany(AuditLog::class);
-    }
-
-    public function userExpansions()
-    {
-        return $this->hasMany(UserExpansion::class);
-    }
-
     public function expansions()
     {
         return $this->belongsToMany(Expansion::class, 'user_expansions')
                     ->withTimestamps();
-    }
-
-    public function sesiones()
-    {
-        return $this->hasMany(Sesion::class);
     }
 }

@@ -27,12 +27,6 @@ class UserController extends Controller
         }
     }
 
-    public function getUser(string $id){
-        return $this->handleUserErrors(function () use ($id) {
-            return response()->json($this->userService->getById($id));
-        });
-    }
-
     #[OA\Patch(
         path: "/api/user",
         tags: ["User Management"],
