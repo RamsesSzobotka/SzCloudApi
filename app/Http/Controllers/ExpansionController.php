@@ -7,6 +7,7 @@ use App\Services\StorageUsageService;
 use App\utils\HttpError;
 use App\utils\Security;
 use Exception;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use OpenApi\Attributes as OA;
 
@@ -85,6 +86,8 @@ class ExpansionController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             abort(404, "Expansión no encontrada");
+        } catch (HttpException $e) {
+            throw $e;
         } catch (Exception $e) {
             HttpError::InternalError($e);
         }

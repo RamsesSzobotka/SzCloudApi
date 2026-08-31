@@ -25,6 +25,7 @@ use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 use Exception;
 use InvalidArgumentException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class StorageController extends Controller
 {
@@ -52,6 +53,8 @@ class StorageController extends Controller
             abort(422, $e->getMessage());
         }catch(InvalidArgumentException $e){
             abort(400, $e->getMessage());
+        }catch(HttpException $e){
+            throw $e; // Dejar que el handler del framework maneje el status code correcto
         }catch(Exception $e){
             HttpError::InternalError($e);
         }
