@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ShareLinkRequest;
 use App\Services\FileService;
 use App\Services\ShareLinkService;
-use App\utils\HttpError;
+use App\utils\LoggerHelper;
 use App\utils\Security;
 use App\utils\ExceptionCustom\ShareLinkException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -30,7 +30,7 @@ class ShareLinkController extends Controller
         }catch(ValidationException $e){
             abort(422, $e->getMessage());
         }catch(Exception $e){
-            HttpError::InternalError($e);
+            LoggerHelper::exception($e);
         }
     }
 

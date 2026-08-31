@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Services\UserService;
-use App\utils\HttpError;
+use App\utils\LoggerHelper;
 use App\utils\Security;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use OpenApi\Attributes as OA;
@@ -23,7 +23,7 @@ class UserController extends Controller
         } catch (ModelNotFoundException $e) {
             abort(404, 'Usuario no encontrado');
         } catch (\Exception $e) {
-            HttpError::InternalError($e);
+            LoggerHelper::exception($e);
         }
     }
 

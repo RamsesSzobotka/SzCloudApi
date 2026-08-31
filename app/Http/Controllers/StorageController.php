@@ -6,7 +6,6 @@ use App\Http\Requests\Storage\MoveItemRequest;
 use App\Http\Requests\Storage\RenameRequest;
 use App\Http\Requests\Storage\StoreFileRequest;
 use App\Http\Requests\Storage\StoreFolderRequest;
-use App\utils\HttpError;
 use App\utils\LoggerHelper;
 use App\utils\NameSanitizer;
 use App\Dtos\FolderDto;
@@ -56,7 +55,7 @@ class StorageController extends Controller
         }catch(HttpException $e){
             throw $e;
         }catch(Exception $e){
-            HttpError::InternalError($e);
+            LoggerHelper::exception($e);
         }
     }
 

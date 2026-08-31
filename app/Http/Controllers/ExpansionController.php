@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Expansion;
 use App\Services\StorageUsageService;
-use App\utils\HttpError;
+use App\utils\LoggerHelper;
 use App\utils\Security;
 use Exception;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -89,7 +89,7 @@ class ExpansionController extends Controller
         } catch (HttpException $e) {
             throw $e;
         } catch (Exception $e) {
-            HttpError::InternalError($e);
+            LoggerHelper::exception($e);
         }
     }
 }

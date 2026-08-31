@@ -7,7 +7,7 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\Sesion;
 use App\Services\UserService;
 use App\utils\ExceptionCustom\DuplicateException;
-use App\utils\HttpError;
+use App\utils\LoggerHelper;
 use App\utils\Security;
 use Exception;
 use Illuminate\Support\Str;
@@ -28,7 +28,7 @@ class AuthController extends Controller
         } catch (DuplicateException $e) {
             abort(409, $e->getMessage());
         } catch (Exception $e) {
-            HttpError::InternalError($e);
+            LoggerHelper::exception($e);
         }
     }
 
