@@ -11,8 +11,8 @@ let folderHierarchy = null;
 
 const $ = id => document.getElementById(id);
 
-const toast = msg => {
-  Swal.mixin({ toast: true, position: 'bottom-end', showConfirmButton: false, timer: 2000, timerProgressBar: true, background: '#1a1a2e', color: '#e2e8f0', border: '1px solid #2a2a4a' }).fire({ icon: 'success', title: msg });
+const toast = (msg, icon = 'success') => {
+  Swal.mixin({ toast: true, position: 'bottom-end', showConfirmButton: false, timer: 2000, timerProgressBar: true, background: '#1a1a2e', color: '#e2e8f0', border: '1px solid #2a2a4a' }).fire({ icon, title: msg });
 };
 
 function log(msg, cls = '') {
@@ -201,7 +201,7 @@ async function apiCall(method, path, body = null, isForm = false, retried = fals
 async function sendRequest() {
   const method = $('req-method').value;
   const path = $('req-url').value.trim();
-  if (!path) return toast('Ingresa una ruta');
+  if (!path) return toast('Ingresa una ruta', 'warning');
 
   // Build headers
   const headers = {};
@@ -378,7 +378,7 @@ async function browseFolder(folderId, page = 1) {
   trashActions.innerHTML = '';
   const path = folderId ? `/storage/folder/content/${folderId}` : '/storage/folder/content';
   const d = await apiCall('GET', `${path}?page=${page}&per_page=20`);
-  if (!d) return toast('No autenticado o error');
+  if (!d) return toast('No autenticado o error', 'error');
 
   currentItems.folders = d.folders || [];
   currentItems.files = d.files || [];
@@ -400,7 +400,7 @@ async function browseTrash() {
   currentView = 'trash';
   currentFolderId = null;
   const d = await apiCall('GET', '/storage/trash');
-  if (!d) return toast('No autenticado o error');
+  if (!d) return toast('No autenticado o error', 'error');
 
   const bc = $('breadcrumb');
   bc.innerHTML = '';
@@ -798,7 +798,7 @@ async function showVersions(id) {
 
 async function restoreVersion(id, dir) {
   const d = await apiCall('POST', `/storage/file/${id}/versions/restore-${dir}`);
-  if (!d) return toast(dir === 'back' ? 'No hay versión anterior disponible' : 'No hay versión posterior disponible');
+  if (!d) return toast(dir === 'back' ? 'No hay versión anterior disponible' : 'No hay versión posterior disponible', 'error');
   Swal.close();
   toast('Versión restaurada');
   showVersions(id);
@@ -819,7 +819,7 @@ async function showActivity(id) {
 
 async function restoreActivity(id, dir) {
   const d = await apiCall('POST', `/storage/file/${id}/activity/restore-${dir}`);
-  if (!d) return toast(dir === 'back' ? 'No hay acción para deshacer' : 'No hay acción para rehacer');
+  if (!d) return toast(dir === 'back' ? 'No hay acción para deshacer' : 'No hay acción para rehacer', 'error');
   Swal.close();
   toast('Acción restaurada');
   showActivity(id);
@@ -828,7 +828,7 @@ async function restoreActivity(id, dir) {
 // ── Browser Actions ──
 async function createFolderBrowser() {
   const name = $('new-folder-name').value.trim();
-  if (!name) return toast('Ingrese un nombre');
+  if (!name) return toast('Ingrese un nombre', 'warning');
   if (!isValidName(name).valid) return showInvalidNameError(name);
   const body = { name };
   if (currentFolderId) body.parent_id = currentFolderId;
@@ -851,13 +851,13 @@ async function confirmUpload() {
     await UploadProgress.upload(file, currentFolderId);
     toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId);
   } catch (e) {
-    if (e.message !== 'Cancelado') toast('Error: ' + e.message);
+    if (e.message !== 'Cancelado') toast('Error: ' + e.message, 'error');
   }
 }
 
 async function uploadFileBrowser() {
   const file = $('upload-file-input').files[0];
-  if (!file) return toast('Seleccione un archivo');
+  if (!file) return toast('Seleccione un archivo', 'warning');
 
   const params = new URLSearchParams({ name: file.name });
   if (currentFolderId) params.set('folder_id', currentFolderId);
@@ -876,7 +876,7 @@ async function uploadFileBrowser() {
       await UploadProgress.upload(file, currentFolderId);
       toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId);
     } catch (e) {
-      if (e.message !== 'Cancelado') toast('Error: ' + e.message);
+      if (e.message !== 'Cancelado') toast('Error: ' + e.message, 'error');
     }
   }
   $('upload-file-input').value = '';
@@ -987,7 +987,7 @@ function closeProfileModal() { $('profile-modal').classList.add('hidden'); }
 
 async function updateProfile() {
   const name = $('profile-name').value.trim();
-  if (!name) return toast('El nombre es obligatorio');
+  if (!name) return toast('El nombre es obligatorio', 'warning');
   const d = await apiCall('PUT', '/user', { name, last_name: $('profile-last-name').value.trim() });
   if (d) { toast('Perfil actualizado'); updateStatus(); }
 }
@@ -995,10 +995,10 @@ async function updateProfile() {
 async function updatePassword() {
   const password = $('profile-pass').value;
   const newPassword = $('profile-new-pass').value;
-  if (!password || !newPassword) return toast('Completá ambos campos');
-  if (newPassword.length < 8) return toast('La nueva contraseña debe tener al menos 8 caracteres');
+  if (!password || !newPassword) return toast('Completá ambos campos', 'warning');
+  if (newPassword.length < 8) return toast('La nueva contraseña debe tener al menos 8 caracteres', 'warning');
   const d = await apiCall('PATCH', '/user', { password, newPassword });
-  if (d === false) return toast('Contraseña actual incorrecta');
+  if (d === false) return toast('Contraseña actual incorrecta', 'error');
   if (d) { toast('Contraseña cambiada'); $('profile-pass').value = ''; $('profile-new-pass').value = ''; }
 }
 
@@ -1109,7 +1109,7 @@ function shareInput() {
 
 async function shareTestConfig() {
   const input = shareInput();
-  if (!input) return toast('Pegá un link compartido');
+  if (!input) return toast('Pegá un link compartido', 'warning');
   const d = await apiCall('GET', `/share/${input.token}/config`);
   if (!d) return;
   const c = d.config || d;
@@ -1125,7 +1125,7 @@ async function shareTestConfig() {
 
 function shareTestOpen() {
   const input = shareInput();
-  if (!input) return toast('Pegá un link compartido');
+  if (!input) return toast('Pegá un link compartido', 'warning');
   window.open(input.link, '_blank');
 }
 
@@ -1241,7 +1241,7 @@ function closeVerifyModal() { $('verify-modal').classList.add('hidden'); }
 async function quickVerifyRun() {
   const mult = parseInt($('verify-size-unit').value) || 1;
   const bytes = Math.round(parseFloat($('verify-size-input').value) * mult);
-  if (!bytes || bytes < 1) return toast('Ingresá un tamaño válido (≥ 1)');
+  if (!bytes || bytes < 1) return toast('Ingresá un tamaño válido (≥ 1)', 'warning');
   const d = await apiCall('POST', '/storage/verify', { file_size: bytes });
   if (!d) return;
   closeVerifyModal();
@@ -1250,7 +1250,7 @@ async function quickVerifyRun() {
 
 async function quickCheckName() {
   openFolderPicker(async (parentId, name) => {
-    if (!name) return toast('Ingresá un nombre');
+    if (!name) return toast('Ingresá un nombre', 'warning');
     const params = new URLSearchParams({ name });
     if (parentId) params.set('parent_id', parentId);
     const d = await apiCall('GET', `/storage/folder/check-name?${params}`);
