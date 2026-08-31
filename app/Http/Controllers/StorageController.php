@@ -54,7 +54,7 @@ class StorageController extends Controller
         }catch(InvalidArgumentException $e){
             abort(400, $e->getMessage());
         }catch(HttpException $e){
-            throw $e; // Dejar que el handler del framework maneje el status code correcto
+            throw $e;
         }catch(Exception $e){
             HttpError::InternalError($e);
         }

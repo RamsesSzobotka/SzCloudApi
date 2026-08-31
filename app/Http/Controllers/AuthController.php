@@ -32,8 +32,6 @@ class AuthController extends Controller
         }
     }
 
-    // ─── Login ────────────────────────────────────────────────────
-
     #[OA\Post(
         path: "/api/login",
         tags: ["Auth"],
@@ -91,8 +89,6 @@ class AuthController extends Controller
         });
     }
 
-    // ─── Refresh ──────────────────────────────────────────────────
-
     #[OA\Post(
         path: "/api/refresh",
         tags: ["Auth"],
@@ -138,7 +134,6 @@ class AuthController extends Controller
                 );
             }
 
-            // Rotación: revocar anterior, crear nueva
             $newRefreshToken = Str::random(80);
 
             $session->update(['revoked_at' => now()]);
@@ -160,8 +155,6 @@ class AuthController extends Controller
             );
         });
     }
-
-    // ─── Logout ───────────────────────────────────────────────────
 
     #[OA\Post(
         path: "/api/logout",
@@ -192,9 +185,7 @@ class AuthController extends Controller
             );
         });
     }
-
-    // ─── Register ─────────────────────────────────────────────────
-
+    
     #[OA\Post(
         path: "/api/register",
         tags: ["Auth"],
@@ -237,8 +228,6 @@ class AuthController extends Controller
             ], 201);
         });
     }
-
-    // ─── Me ───────────────────────────────────────────────────────
 
     #[OA\Get(
         path: "/api/me",

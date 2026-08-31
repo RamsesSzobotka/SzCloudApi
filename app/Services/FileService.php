@@ -234,8 +234,12 @@ class FileService {
     }
 
     public function renameFile(File $file, string $newName){
+        $baseName = pathinfo($newName, PATHINFO_FILENAME);
+        $ext = $file->extension ? "." . $file->extension : "";
+        $nameWithExt = $baseName . $ext;
+
         $available = self::findAvailableName(
-            $file->user_id, $file->folder_id, $newName, $file->extension, $file->id
+            $file->user_id, $file->folder_id, $nameWithExt, $file->extension, $file->id
         );
 
         return $this->updateFile($file, ["original_name" => $available]);

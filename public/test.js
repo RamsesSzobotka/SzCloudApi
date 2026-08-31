@@ -901,20 +901,24 @@ async function deleteItem(type, id) {
 }
 
 async function promptRename(type, id, currentName) {
+  // ponytail: for files, show only the name part (no extension) in the input
+  const displayName = type === 'file' ? currentName.replace(/\.[^.]+$/, '') : currentName;
   const { value: newName } = await Swal.fire({
-    title: 'Nuevo nombre', input: 'text', inputValue: currentName,
+    title: 'Nuevo nombre', input: 'text', inputValue: displayName,
     showCancelButton: true, confirmButtonText: 'Renombrar', cancelButtonText: 'Cancelar',
     background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1',
     inputValidator: v => {
-      if (!v || v === currentName) return 'Ingresa un nombre diferente';
+      if (!v || v === displayName) return 'Ingresa un nombre diferente';
       const { valid, invalidChars } = isValidName(v);
       if (!valid) return `Caracteres no permitidos: ${invalidChars.join(' ')}`;
       return null;
     }
   });
   if (!newName) return;
+  // ponytail: strip any extension the user might have typed — backend enforces, this is UX
+  const safeName = type === 'file' ? newName.replace(/\.[^.]+$/, '') : newName;
   const endpoint = type === 'folder' ? `/storage/folder/${id}/rename` : `/storage/file/${id}/rename`;
-  const d = await apiCall('PATCH', endpoint, { name: newName });
+  const d = await apiCall('PATCH', endpoint, { name: safeName });
   if (d) { toast('Renombrado'); folderHierarchy = null; browseFolder(currentFolderId); }
 }
 
