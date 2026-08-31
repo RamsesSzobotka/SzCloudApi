@@ -16,24 +16,6 @@ services:
     networks:
       - backend
 
-  artisan:
-    build: .
-    env_file: .env
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-    volumes:
-      - .:/var/www/html
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - backend
-    profiles:
-      - migrate
-    entrypoint: ["php", "artisan"]
-    command: ["migrate", "--force"]
-
   redis:
     image: redis:7-alpine
     ports:

@@ -23,7 +23,7 @@
                 <div class="hidden md:flex items-center gap-6">
                     <a href="/api/documentation" class="text-sm text-[#a1a09a] hover:text-white transition-colors">Documentation</a>
                     <a href="/api/documentation" class="text-sm text-[#a1a09a] hover:text-white transition-colors">Swagger</a>
-                    <a href="/test.html" class="text-sm text-[#a1a09a] hover:text-white transition-colors">API Test</a>
+                    <a href="/test" class="text-sm text-[#a1a09a] hover:text-white transition-colors">API Test</a>
                 </div>
                 <button id="menu-toggle" class="md:hidden text-[#a1a09a] hover:text-white" aria-label="Toggle menu">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -37,7 +37,7 @@
             <div class="px-4 py-4 space-y-3">
                 <a href="/api/documentation" class="block text-sm text-[#a1a09a] hover:text-white">Documentation</a>
                 <a href="/api/documentation" class="block text-sm text-[#a1a09a] hover:text-white">Swagger</a>
-                <a href="/test.html" class="block text-sm text-[#a1a09a] hover:text-white">API Test</a>
+                <a href="/test" class="block text-sm text-[#a1a09a] hover:text-white">API Test</a>
             </div>
         </div>
     </nav>
@@ -59,7 +59,7 @@
                 <a href="/api/documentation" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
                     Open Swagger
                 </a>
-                <a href="/test.html" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
+                <a href="/test" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
                     Try API
                 </a>
             </div>
@@ -217,7 +217,7 @@
                 <a href="/api/documentation" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
                     Open Swagger
                 </a>
-                <a href="/test.html" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
+                <a href="/test" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
                     Try API
                 </a>
             </div>
@@ -231,7 +231,7 @@
             <div class="flex items-center gap-6">
                 <a href="/api/documentation" class="text-sm text-[#706f6c] hover:text-white transition-colors">Documentation</a>
                 <a href="/api/documentation" class="text-sm text-[#706f6c] hover:text-white transition-colors">Swagger</a>
-                <a href="/test.html" class="text-sm text-[#706f6c] hover:text-white transition-colors">API Test</a>
+                <a href="/test" class="text-sm text-[#706f6c] hover:text-white transition-colors">API Test</a>
             </div>
         </div>
     </footer>
