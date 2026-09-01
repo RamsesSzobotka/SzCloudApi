@@ -40,6 +40,13 @@ Route::prefix("/storage")->middleware("auth:api")->group(function (){
         Route::post("/{file_id}/activity/restore-front", [StorageController::class, "restoreFrontActivity"]);
     });
 
+    Route::prefix("/upload")->group(function (){
+        Route::post("/init", [StorageController::class, "initUpload"]);
+        Route::put("/{session_id}/chunk", [StorageController::class, "uploadChunk"]);
+        Route::post("/{session_id}/complete", [StorageController::class, "completeUpload"]);
+        Route::post("/{session_id}/abort", [StorageController::class, "abortUpload"]);
+    });
+
     Route::prefix("/trash")->group(function (){
         Route::get("/", [StorageController::class, "getTrash"]);
         Route::delete("/", [StorageController::class, "deleteTrash"]);

@@ -837,6 +837,28 @@ async function createFolderBrowser() {
 }
 
 let pendingUploadFile = null;
+let pendingUploadMode = 'chunks';
+let uploadMenuOpen = false;
+
+function toggleUploadMenu() {
+  const menu = $('upload-menu');
+  uploadMenuOpen = !uploadMenuOpen;
+  menu.style.display = uploadMenuOpen ? 'block' : 'none';
+}
+
+function selectUploadMode(mode) {
+  pendingUploadMode = mode;
+  uploadMenuOpen = false;
+  $('upload-menu').style.display = 'none';
+  $('upload-file-input').click();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.upload-btn-group')) {
+    const menu = $('upload-menu');
+    if (menu) { menu.style.display = 'none'; uploadMenuOpen = false; }
+  }
+});
 
 function closeUploadModal() {
   $('upload-modal').classList.add('hidden');
@@ -846,9 +868,14 @@ function closeUploadModal() {
 async function confirmUpload() {
   if (!pendingUploadFile) return;
   const file = pendingUploadFile;
+  const mode = pendingUploadMode;
   closeUploadModal();
   try {
-    await UploadProgress.upload(file, currentFolderId);
+    if (mode === 'chunks') {
+      await ChunkedUpload.upload(file, currentFolderId);
+    } else {
+      await UploadProgress.upload(file, currentFolderId, true);
+    }
     toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId);
   } catch (e) {
     if (e.message !== 'Cancelado') toast('Error: ' + e.message, 'error');
@@ -858,6 +885,7 @@ async function confirmUpload() {
 async function uploadFileBrowser() {
   const file = $('upload-file-input').files[0];
   if (!file) return toast('Seleccione un archivo', 'warning');
+  const mode = pendingUploadMode;
 
   const params = new URLSearchParams({ name: file.name });
   if (currentFolderId) params.set('folder_id', currentFolderId);
@@ -873,7 +901,11 @@ async function uploadFileBrowser() {
     $('upload-modal').classList.remove('hidden');
   } else {
     try {
-      await UploadProgress.upload(file, currentFolderId);
+      if (mode === 'chunks') {
+        await ChunkedUpload.upload(file, currentFolderId);
+      } else {
+        await UploadProgress.upload(file, currentFolderId, true);
+      }
       toast('Archivo subido'); loadStorageInfo(); browseFolder(currentFolderId);
     } catch (e) {
       if (e.message !== 'Cancelado') toast('Error: ' + e.message, 'error');

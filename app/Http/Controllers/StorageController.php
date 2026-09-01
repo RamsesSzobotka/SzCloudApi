@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Storage\MoveItemRequest;
 use App\Http\Requests\Storage\RenameRequest;
+use App\Http\Requests\Storage\InitUploadRequest;
 use App\Http\Requests\Storage\StoreFileRequest;
 use App\Http\Requests\Storage\StoreFolderRequest;
 use App\utils\LoggerHelper;
@@ -57,6 +58,161 @@ class StorageController extends Controller
         }catch(Exception $e){
             LoggerHelper::exception($e);
         }
+    }
+
+    #[OA\Post(
+        path: "/api/storage/upload/init",
+        tags: ["Upload"],
+        summary: "Iniciar subida multipart",
+        description: "Crea una sesion de subida por chunks. Retorna el session_id, total_parts y chunk_size para proceder con la subida por partes.",
+        security: [["bearerAuth" => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["file_name", "mime_type", "total_size"],
+                properties: [
+                    new OA\Property(property: "file_name", type: "string", example: "documento.pdf", description: "Nombre original del archivo"),
+                    new OA\Property(property: "mime_type", type: "string", example: "application/pdf", description: "Tipo MIME del archivo"),
+                    new OA\Property(property: "total_size", type: "integer", example: 10485760, description: "Tamano total del archivo en bytes"),
+                    new OA\Property(property: "folder_id", type: "string", format: "uuid", nullable: true, description: "ID de la carpeta destino. Null para raiz."),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: "Sesion de subida creada", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "session_id", type: "string", format: "uuid", description: "ID de la sesion de subida"),
+                    new OA\Property(property: "total_parts", type: "integer", description: "Numero total de chunks"),
+                    new OA\Property(property: "chunk_size", type: "integer", description: "Tamano de cada chunk en bytes"),
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 422, description: "Validacion fallida"),
+        ]
+    )]
+    public function initUpload(InitUploadRequest $req){
+        return $this->handleStorageErrors(function() use ($req){
+            $fileName = $req->file_name;
+            if (!NameSanitizer::isValid($fileName)) {
+                abort(422, 'El nombre del archivo contiene caracteres no permitidos');
+            }
+            $user = Security::isOwner();
+            if ($req->folder_id !== null) {
+                $this->folderService->getFolder($user->id, $req->folder_id);
+            }
+            return response()->json($this->fileService->initMultipartUpload(
+                $user, $req->file_name, $req->mime_type, $req->total_size, $req->folder_id
+            ), 201);
+        });
+    }
+
+    #[OA\Put(
+        path: "/api/storage/upload/{session_id}/chunk",
+        tags: ["Upload"],
+        summary: "Subir chunk",
+        description: "Envia un chunk del archivo. Cada chunk es un fragmento del archivo que se sube individualmente a S3 via multipart upload.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "session_id", in: "path", required: true, description: "ID de la sesion de subida (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: "multipart/form-data",
+                schema: new OA\Schema(
+                    required: ["chunk", "part_number", "total_parts"],
+                    properties: [
+                        new OA\Property(property: "chunk", type: "string", format: "binary", description: "Fragmento del archivo"),
+                        new OA\Property(property: "part_number", type: "integer", example: 1, description: "Numero de parte (empezando en 1)"),
+                        new OA\Property(property: "total_parts", type: "integer", example: 5, description: "Total de partes del archivo"),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Chunk subido exitosamente", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "part_number", type: "integer", description: "Numero de parte subida"),
+                    new OA\Property(property: "etag", type: "string", description: "ETag de la parte en S3"),
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Sesion no encontrada"),
+        ]
+    )]
+    public function uploadChunk(string $session_id, Request $req){
+        return $this->handleStorageErrors(function() use ($session_id, $req){
+            $user = Security::isOwner();
+            $req->validate([
+                'chunk' => ['required', 'file'],
+                'part_number' => ['required', 'integer', 'min:1'],
+                'total_parts' => ['required', 'integer', 'min:1'],
+            ]);
+            $resource = fopen($req->file('chunk')->getRealPath(), 'r');
+            $result = $this->fileService->uploadChunk(
+                $session_id, $req->part_number, $resource, $req->file('chunk')->getSize()
+            );
+            fclose($resource);
+            return response()->json($result);
+        });
+    }
+
+    #[OA\Post(
+        path: "/api/storage/upload/{session_id}/complete",
+        tags: ["Upload"],
+        summary: "Completar subida",
+        description: "Finaliza la subida multipart, ensambla las partes en S3 y crea el registro del archivo en la base de datos.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "session_id", in: "path", required: true, description: "ID de la sesion de subida (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "folder_id", type: "string", format: "uuid", nullable: true, description: "ID de la carpeta destino. Usa el de la sesion si no se especifica."),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Archivo creado exitosamente"),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Sesion no encontrada"),
+        ]
+    )]
+    public function completeUpload(string $session_id, Request $req){
+        return $this->handleStorageErrors(function() use ($session_id, $req){
+            $user = Security::isOwner();
+            $folderId = $req->input('folder_id');
+            return response()->json($this->fileService->completeMultipartUpload($session_id, $folderId));
+        });
+    }
+
+    #[OA\Post(
+        path: "/api/storage/upload/{session_id}/abort",
+        tags: ["Upload"],
+        summary: "Cancelar subida",
+        description: "Cancela una subida en progreso y limpia los datos temporales en S3.",
+        security: [["bearerAuth" => []]],
+        parameters: [
+            new OA\Parameter(name: "session_id", in: "path", required: true, description: "ID de la sesion de subida (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Subida cancelada", content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: "message", type: "string", example: "Upload cancelado"),
+                ]
+            )),
+            new OA\Response(response: 401, description: "No autenticado"),
+            new OA\Response(response: 404, description: "Sesion no encontrada"),
+        ]
+    )]
+    public function abortUpload(string $session_id){
+        return $this->handleStorageErrors(function() use ($session_id){
+            $user = Security::isOwner();
+            $this->fileService->abortMultipartUpload($session_id);
+            return response()->json(['message' => 'Upload cancelado']);
+        });
     }
 
     #[OA\Post(

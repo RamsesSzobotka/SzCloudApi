@@ -21,6 +21,9 @@ class UploadSession extends Model
         "uploaded_size",
         "storage_path",
         "status",
+        "upload_id",
+        "total_parts",
+        "parts",
         "expires_at",
     ];
 
@@ -28,6 +31,7 @@ class UploadSession extends Model
     {
         return [
             "expires_at" => "datetime",
+            "parts" => "array",
         ];
     }
 

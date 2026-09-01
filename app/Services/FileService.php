@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use App\utils\MinIOHelper;
+use App\Models\UploadSession;
 use \App\utils\ExceptionCustom\StorageException;
 
 class FileService {
@@ -19,6 +20,130 @@ class FileService {
         private StorageUsageService $storageUsageService,
         private FolderService $folderService,
     ){}
+
+    public function initMultipartUpload(User $user, string $fileName, string $mimeType, int $totalSize, ?string $folderId = null): array {
+        return DB::transaction(function () use ($user, $fileName, $mimeType, $totalSize, $folderId) {
+            if (!$this->storageUsageService->storageVerify($user, $totalSize)) {
+                throw new StorageException("No tienes suficiente espacio de almacenamiento");
+            }
+
+            if ($folderId !== null) {
+                Folder::where("id", $folderId)
+                    ->where("user_id", $user->id)
+                    ->firstOrFail();
+            }
+
+            $originalName = self::findAvailableName(
+                $user->id, $folderId, $fileName, pathinfo($fileName, PATHINFO_EXTENSION) ?: null
+            );
+
+            $storageName = Str::uuid() . '.' . pathinfo($fileName, PATHINFO_EXTENSION);
+            $storagePath = "users/{$user->id}/files/{$storageName}";
+
+            $totalParts = (int) ceil($totalSize / (5 * 1024 * 1024));
+
+            $uploadResult = MinIOHelper::createMultipartUpload($storagePath);
+
+            $session = UploadSession::create([
+                "user_id" => $user->id,
+                "folder_id" => $folderId,
+                "file_name" => $originalName,
+                "mime_type" => $mimeType,
+                "total_size" => $totalSize,
+                "storage_path" => $storagePath,
+                "status" => "uploading",
+                "upload_id" => $uploadResult['upload_id'],
+                "total_parts" => $totalParts,
+                "expires_at" => now()->addHours(24),
+            ]);
+
+            return [
+                'session_id' => $session->id,
+                'total_parts' => $totalParts,
+                'chunk_size' => 5 * 1024 * 1024,
+            ];
+        });
+    }
+
+    public function uploadChunk(string $sessionId, int $partNumber, $resource, int $chunkSize): array {
+        $session = UploadSession::where('id', $sessionId)
+            ->where('status', 'uploading')
+            ->firstOrFail();
+
+        $partResult = MinIOHelper::uploadPart(
+            $session->storage_path, $session->upload_id, $partNumber, $resource, $chunkSize
+        );
+
+        $parts = $session->parts ?? [];
+        $parts[] = $partResult;
+
+        $session->update([
+            'parts' => $parts,
+            'uploaded_size' => $session->uploaded_size + $chunkSize,
+        ]);
+
+        return ['part_number' => $partResult['part_number'], 'etag' => $partResult['etag']];
+    }
+
+    public function completeMultipartUpload(string $sessionId, ?string $folderId = null): File {
+        return DB::transaction(function () use ($sessionId, $folderId) {
+            $session = UploadSession::where('id', $sessionId)
+                ->where('status', 'uploading')
+                ->firstOrFail();
+
+            MinIOHelper::completeMultipartUpload(
+                $session->storage_path, $session->upload_id, $session->parts
+            );
+
+            $stream = MinIOHelper::getStream($session->storage_path);
+            $context = hash_init('sha256');
+            hash_update_stream($context, $stream);
+            $hash = hash_final($context);
+            fclose($stream);
+
+            $extension = pathinfo($session->storage_path, PATHINFO_EXTENSION);
+            $storageName = pathinfo($session->storage_path, PATHINFO_BASENAME);
+
+            $fileRecord = File::create([
+                "user_id" => $session->user_id,
+                "folder_id" => $folderId ?? $session->folder_id,
+                "original_name" => $session->file_name,
+                "storage_name" => $storageName,
+                "storage_path" => $session->storage_path,
+                "mime_type" => $session->mime_type,
+                "extension" => $extension,
+                "size" => $session->total_size,
+                "hash" => $hash,
+            ]);
+
+            $session->update(['status' => 'completed']);
+
+            $user = User::findOrFail($session->user_id);
+            $this->storageUsageService->addFile($user, $session->total_size);
+
+            $stream = MinIOHelper::getStream($session->storage_path);
+            $this->addFileVersion($fileRecord, $stream);
+            fclose($stream);
+
+            $this->addFileActivity($fileRecord, 'create', null, $fileRecord->only(['original_name', 'folder_id', 'storage_name']));
+
+            return $fileRecord;
+        });
+    }
+
+    public function abortMultipartUpload(string $sessionId): bool {
+        $session = UploadSession::where('id', $sessionId)
+            ->where('status', 'uploading')
+            ->firstOrFail();
+
+        if ($session->upload_id) {
+            MinIOHelper::abortMultipartUpload($session->storage_path, $session->upload_id);
+        }
+
+        $session->update(['status' => 'cancelled']);
+
+        return true;
+    }
 
     public function addFile(User $user, UploadedFile $file, ?string $folderId = null){
         return DB::transaction(function () use ($user, $file, $folderId) {

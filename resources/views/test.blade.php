@@ -60,10 +60,22 @@
       <button class="icon-btn" onclick="createFolderBrowser()" title="Crear carpeta">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
-      <label class="icon-btn" title="Subir archivo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="upload-btn-group" style="position:relative">
+        <button class="icon-btn" onclick="toggleUploadMenu()" title="Subir archivo" id="upload-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <div id="upload-menu" class="upload-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:6px;z-index:100;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,.5)">
+          <div class="upload-menu-item" onclick="selectUploadMode('normal')" style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:#e2e8f0;display:flex;align-items:center;gap:6px" onmouseover="this.style.background='#2a2a4a'" onmouseout="this.style.background=''">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Subir normal
+          </div>
+          <div class="upload-menu-item" onclick="selectUploadMode('chunks')" style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:#e2e8f0;display:flex;align-items:center;gap:6px;border-top:1px solid #2a2a4a" onmouseover="this.style.background='#2a2a4a'" onmouseout="this.style.background=''">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Subir por chunks
+          </div>
+        </div>
         <input id="upload-file-input" type="file" onchange="uploadFileBrowser()" hidden>
-      </label>
+      </div>
       <button class="icon-btn" onclick="browseTrash()" title="Papelera">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>
@@ -456,6 +468,7 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ asset('upload-chunked.js') }}"></script>
 <script src="{{ asset('upload-progress.js') }}"></script>
 <script src="{{ asset('test.js') }}"></script>
 </body>

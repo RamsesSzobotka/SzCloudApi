@@ -64,4 +64,71 @@ class MinIOHelper {
         )->getUri();
     }
 
+    private static function getClient(): S3Client {
+        return new S3Client([
+            'credentials' => [
+                'key'    => config('filesystems.disks.minio.key'),
+                'secret' => config('filesystems.disks.minio.secret'),
+            ],
+            'region'  => config('filesystems.disks.minio.region'),
+            'endpoint' => config('filesystems.disks.minio.endpoint'),
+            'use_path_style_endpoint' => true,
+            'version' => 'latest',
+        ]);
+    }
+
+    public static function createMultipartUpload(string $path): array {
+        $client = self::getClient();
+        $result = $client->execute($client->getCommand('CreateMultipartUpload', [
+            'Bucket' => config('filesystems.disks.minio.bucket'),
+            'Key'    => $path,
+        ]));
+
+        return [
+            'upload_id' => $result['UploadId'],
+            'key'       => $path,
+            'bucket'    => config('filesystems.disks.minio.bucket'),
+        ];
+    }
+
+    public static function uploadPart(string $path, string $uploadId, int $partNumber, $body, int $size): array {
+        $client = self::getClient();
+        $result = $client->execute($client->getCommand('UploadPart', [
+            'Bucket'        => config('filesystems.disks.minio.bucket'),
+            'Key'           => $path,
+            'UploadId'      => $uploadId,
+            'PartNumber'    => $partNumber,
+            'Body'          => $body,
+            'ContentLength' => $size,
+        ]));
+
+        return ['part_number' => $partNumber, 'etag' => $result['ETag']];
+    }
+
+    public static function completeMultipartUpload(string $path, string $uploadId, array $parts): bool {
+        $client = self::getClient();
+        usort($parts, fn($a, $b) => $a['part_number'] <=> $b['part_number']);
+        $parts = array_map(fn($p) => ['PartNumber' => $p['part_number'], 'ETag' => $p['etag']], $parts);
+
+        $client->execute($client->getCommand('CompleteMultipartUpload', [
+            'Bucket'   => config('filesystems.disks.minio.bucket'),
+            'Key'      => $path,
+            'UploadId' => $uploadId,
+            'MultipartUpload' => ['Parts' => $parts],
+        ]));
+
+        return true;
+    }
+
+    public static function abortMultipartUpload(string $path, string $uploadId): bool {
+        $client = self::getClient();
+        $client->execute($client->getCommand('AbortMultipartUpload', [
+            'Bucket'   => config('filesystems.disks.minio.bucket'),
+            'Key'      => $path,
+            'UploadId' => $uploadId,
+        ]));
+
+        return true;
+    }
+
 }

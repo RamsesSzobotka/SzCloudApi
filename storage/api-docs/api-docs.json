@@ -482,6 +482,290 @@
                 }
             }
         },
+        "/api/storage/upload/init": {
+            "post": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "Iniciar subida multipart",
+                "description": "Crea una sesion de subida por chunks. Retorna el session_id, total_parts y chunk_size para proceder con la subida por partes.",
+                "operationId": "b90eacc351d0a5b613700c1beee671c6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "file_name",
+                                    "mime_type",
+                                    "total_size"
+                                ],
+                                "properties": {
+                                    "file_name": {
+                                        "description": "Nombre original del archivo",
+                                        "type": "string",
+                                        "example": "documento.pdf"
+                                    },
+                                    "mime_type": {
+                                        "description": "Tipo MIME del archivo",
+                                        "type": "string",
+                                        "example": "application/pdf"
+                                    },
+                                    "total_size": {
+                                        "description": "Tamano total del archivo en bytes",
+                                        "type": "integer",
+                                        "example": 10485760
+                                    },
+                                    "folder_id": {
+                                        "description": "ID de la carpeta destino. Null para raiz.",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Sesion de subida creada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "session_id": {
+                                            "description": "ID de la sesion de subida",
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "total_parts": {
+                                            "description": "Numero total de chunks",
+                                            "type": "integer"
+                                        },
+                                        "chunk_size": {
+                                            "description": "Tamano de cada chunk en bytes",
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "422": {
+                        "description": "Validacion fallida"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/upload/{session_id}/chunk": {
+            "put": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "Subir chunk",
+                "description": "Envia un chunk del archivo. Cada chunk es un fragmento del archivo que se sube individualmente a S3 via multipart upload.",
+                "operationId": "08d049c3f3ee972fdeb9048bdca34d7e",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "description": "ID de la sesion de subida (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "chunk",
+                                    "part_number",
+                                    "total_parts"
+                                ],
+                                "properties": {
+                                    "chunk": {
+                                        "description": "Fragmento del archivo",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "part_number": {
+                                        "description": "Numero de parte (empezando en 1)",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "total_parts": {
+                                        "description": "Total de partes del archivo",
+                                        "type": "integer",
+                                        "example": 5
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Chunk subido exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "part_number": {
+                                            "description": "Numero de parte subida",
+                                            "type": "integer"
+                                        },
+                                        "etag": {
+                                            "description": "ETag de la parte en S3",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Sesion no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/upload/{session_id}/complete": {
+            "post": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "Completar subida",
+                "description": "Finaliza la subida multipart, ensambla las partes en S3 y crea el registro del archivo en la base de datos.",
+                "operationId": "a21b39e93060a280ca14b9e4a0255072",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "description": "ID de la sesion de subida (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "folder_id": {
+                                        "description": "ID de la carpeta destino. Usa el de la sesion si no se especifica.",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Archivo creado exitosamente"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Sesion no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/storage/upload/{session_id}/abort": {
+            "post": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "Cancelar subida",
+                "description": "Cancela una subida en progreso y limpia los datos temporales en S3.",
+                "operationId": "83aa4068ca26bd02c72e67abdefc3f0d",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "description": "ID de la sesion de subida (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Subida cancelada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Upload cancelado"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Sesion no encontrada"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/storage/folder": {
             "post": {
                 "tags": [
@@ -2173,6 +2457,10 @@
         {
             "name": "Expansions",
             "description": "Expansions"
+        },
+        {
+            "name": "Upload",
+            "description": "Upload"
         },
         {
             "name": "Storage",

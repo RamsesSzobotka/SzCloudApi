@@ -1,28 +1,16 @@
-// Upload Progress Bar — XHR-based with concurrent upload support
-// Usage: UploadProgress.upload(file, folderId).then(result => ...)
-
-const UploadProgress = (() => {
+const ChunkedUpload = (() => {
   let container = null;
   let idCounter = 0;
+  const CHUNK_SIZE = 5 * 1024 * 1024;
 
   function injectStyles() {
     if (document.getElementById('upload-progress-css')) return;
     const style = document.createElement('style');
     style.id = 'upload-progress-css';
     style.textContent = `
-      .up-container {
-        position: fixed; bottom: 16px; right: 16px; z-index: 9999;
-        width: 320px; font-family: inherit;
-        display: flex; flex-direction: column-reverse; gap: 6px;
-        pointer-events: none;
-      }
+      .up-container { position: fixed; bottom: 16px; right: 16px; z-index: 9999; width: 320px; font-family: inherit; display: flex; flex-direction: column-reverse; gap: 6px; pointer-events: none; }
       .up-container:empty { display: none; }
-      .up-item {
-        background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px;
-        padding: 10px 12px; pointer-events: auto;
-        box-shadow: 0 4px 12px rgba(0,0,0,.4);
-        animation: up-slide-in .2s ease-out;
-      }
+      .up-item { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 10px 12px; pointer-events: auto; box-shadow: 0 4px 12px rgba(0,0,0,.4); animation: up-slide-in .2s ease-out; }
       .up-item.up-done { opacity: 0; transform: translateX(20px); transition: .3s; pointer-events: none; }
       .up-item.up-error { border-color: #ef4444; }
       .up-row { display: flex; align-items: center; gap: 8px; }
@@ -55,6 +43,8 @@ const UploadProgress = (() => {
     document.body.appendChild(container);
   }
 
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
   function createItem(id, name) {
     const el = document.createElement('div');
     el.className = 'up-item';
@@ -78,8 +68,6 @@ const UploadProgress = (() => {
       <div class="up-bar-bg"><div class="up-bar-fill" style="width:0%"></div></div>`;
     return el;
   }
-
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   function updateItem(id, pct, done, error, processing) {
     const el = document.getElementById(`up-${id}`);
@@ -106,82 +94,122 @@ const UploadProgress = (() => {
       .catch(() => false);
   }
 
-  function upload(file, folderId = null, showAbort = false) {
-    ensureContainer();
+  function apiFetch(url, options = {}) {
+    return fetch(url, { credentials: 'same-origin', ...options });
+  }
 
+  function apiFetchWithRetry(url, options = {}, ac) {
+    return apiFetch(url, options).then(r => {
+      if (r.status === 401) {
+        return refreshSession().then(ok => {
+          if (!ok) throw new Error('Sesión expirada');
+          return apiFetch(url, options);
+        });
+      }
+      return r;
+    });
+  }
+
+  function initUpload(fileName, mimeType, totalSize, folderId) {
+    const base = typeof API !== 'undefined' ? API : '/api';
+    return apiFetchWithRetry(`${base}/storage/upload/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_name: fileName, mime_type: mimeType, total_size: totalSize, folder_id: folderId })
+    }).then(r => {
+      if (!r.ok) throw new Error('Error al iniciar upload');
+      return r.json();
+    });
+  }
+
+  function sendChunk(sessionId, chunk, partNumber, totalParts, ac) {
+    const base = typeof API !== 'undefined' ? API : '/api';
+    const fd = new FormData();
+    fd.append('chunk', chunk);
+    fd.append('part_number', partNumber);
+    fd.append('total_parts', totalParts);
+    return apiFetchWithRetry(`${base}/storage/upload/${sessionId}/chunk`, {
+      method: 'PUT',
+      body: fd,
+      signal: ac.signal
+    }).then(r => {
+      if (!r.ok) throw new Error(`Error en chunk ${partNumber}`);
+      return r.json();
+    });
+  }
+
+  function completeUpload(sessionId, fileName, mimeType, folderId) {
+    const base = typeof API !== 'undefined' ? API : '/api';
+    return apiFetchWithRetry(`${base}/storage/upload/${sessionId}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_name: fileName, mime_type: mimeType, folder_id: folderId })
+    }).then(r => {
+      if (!r.ok) throw new Error('Error al completar upload');
+      return r.json();
+    });
+  }
+
+  function abortUpload(sessionId) {
+    const base = typeof API !== 'undefined' ? API : '/api';
+    apiFetch(`${base}/storage/upload/${sessionId}/abort`, { method: 'POST' }).catch(() => {});
+  }
+
+  function upload(file, folderId = null) {
+    ensureContainer();
     const id = ++idCounter;
     const el = createItem(id, file.name);
     container.prepend(el);
+    const ac = new AbortController();
+    el.querySelector('.up-cancel').onclick = () => ac.abort();
 
-    const xhr = new XMLHttpRequest();
-    el.querySelector('.up-cancel').onclick = () => xhr.abort();
-    el.querySelector('.up-cancel').style.display = showAbort ? '' : 'none';
-    let retried = false;
-
-    function resetUI() {
-      el.classList.remove('up-processing', 'up-error');
-      el.querySelector('.up-pct').textContent = '0%';
-      el.querySelector('.up-bar-fill').style.width = '0%';
-    }
+    let sessionId = null;
 
     return new Promise((resolve, reject) => {
-      function send() {
-        const fd = new FormData();
-        fd.append('file', file);
-        if (folderId) fd.append('folder_id', folderId);
+      const onAbort = () => {
+        if (sessionId) abortUpload(sessionId);
+        el.remove();
+        reject(new Error('Cancelado'));
+      };
+      ac.signal.addEventListener('abort', onAbort);
 
-        xhr.upload.onprogress = e => {
-          if (e.lengthComputable) {
-            const pct = Math.round(e.loaded / e.total * 100);
-            if (pct >= 100) {
+      const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+
+      initUpload(file.name, file.type, file.size, folderId)
+        .then(init => {
+          sessionId = init.session_id;
+          const parts = init.total_parts || totalParts;
+          const chunkSize = init.chunk_size || CHUNK_SIZE;
+          let current = 0;
+
+          function sendNext() {
+            if (current >= parts) {
+              return completeUpload(sessionId, file.name, file.type, folderId).then(result => {
+                updateItem(id, 100, true);
+                resolve(result);
+              });
+            }
+            current++;
+            const start = (current - 1) * chunkSize;
+            const end = Math.min(start + chunkSize, file.size);
+            const chunk = file.slice(start, end);
+            const pct = Math.round((current / parts) * 100);
+            if (current === parts) {
               updateItem(id, 100, false, false, true);
             } else {
               updateItem(id, pct);
             }
+            return sendChunk(sessionId, chunk, current, parts, ac).then(() => sendNext());
           }
-        };
 
-        xhr.onload = () => {
-          if (xhr.status === 401 && !retried) {
-            retried = true;
-            refreshSession().then(ok => {
-              if (ok) {
-                resetUI();
-                send();
-              } else {
-                updateItem(id, 0, false, true);
-                reject(new Error('Sesión expirada'));
-              }
-            });
-            return;
-          }
-          if (xhr.status >= 200 && xhr.status < 300) {
-            updateItem(id, 100, true);
-            try { resolve(JSON.parse(xhr.responseText)); } catch { resolve(xhr.responseText); }
-          } else {
-            updateItem(id, 0, false, true);
-            let msg = 'Error';
-            try { msg = JSON.parse(xhr.responseText)?.message || msg; } catch {}
-            reject(new Error(msg));
-          }
-        };
-
-        xhr.onerror = () => {
+          return sendNext();
+        })
+        .catch(err => {
+          if (ac.signal.aborted) return;
+          if (sessionId) abortUpload(sessionId);
           updateItem(id, 0, false, true);
-          reject(new Error('Error de red'));
-        };
-
-        xhr.onabort = () => {
-          el.remove();
-          reject(new Error('Cancelado'));
-        };
-
-        xhr.open('POST', `${typeof API !== 'undefined' ? API : '/api'}/storage/file`);
-        xhr.withCredentials = true;
-        xhr.send(fd);
-      }
-
-      send();
+          reject(err);
+        });
     });
   }
 
