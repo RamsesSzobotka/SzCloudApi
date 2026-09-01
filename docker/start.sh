@@ -5,7 +5,11 @@ echo "==> Running migrations..."
 php artisan migrate --force
 
 echo "==> Seeding database..."
-php artisan db:seed --force
+if php artisan tinker --execute="echo App\\Models\\Expansion::count();" 2>/dev/null | grep -q '^0$'; then
+    php artisan db:seed --force
+else
+    echo "==> Seed data already exists, skipping..."
+fi
 
 echo "==> Ensuring MinIO bucket exists..."
 php artisan storage:ensure-bucket
