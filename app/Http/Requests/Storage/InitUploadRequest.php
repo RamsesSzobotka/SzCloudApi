@@ -16,7 +16,7 @@ class InitUploadRequest extends FormRequest
         return [
             "file_name" => ["required", "string", "max:255"],
             "mime_type" => ["required", "string", "max:127"],
-            "total_size" => ["required", "integer", "min:1"],
+            "total_size" => ["required", "numeric", "min:1"],
             "folder_id" => ["nullable", "string"],
         ];
     }

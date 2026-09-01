@@ -3,6 +3,22 @@ const ChunkedUpload = (() => {
   let idCounter = 0;
   const CHUNK_SIZE = 5 * 1024 * 1024;
 
+  function getMimeType(file) {
+    if (file.type) return file.type;
+
+    const extension = file.name.split('.').pop().toLowerCase();
+
+    const mimeTypes = {
+        rar: 'application/vnd.rar',
+        zip: 'application/zip',
+        '7z': 'application/x-7z-compressed',
+        tar: 'application/x-tar',
+        gz: 'application/gzip'
+    };
+
+    return mimeTypes[extension] || 'application/octet-stream';
+  }
+
   function injectStyles() {
     if (document.getElementById('upload-progress-css')) return;
     const style = document.createElement('style');
@@ -109,7 +125,7 @@ const ChunkedUpload = (() => {
       return r;
     });
   }
-
+  
   function initUpload(fileName, mimeType, totalSize, folderId) {
     const base = typeof API !== 'undefined' ? API : '/api';
     return apiFetchWithRetry(`${base}/storage/upload/init`, {
@@ -156,6 +172,12 @@ const ChunkedUpload = (() => {
   }
 
   function upload(file, folderId = null) {
+        console.log({
+        name: file.name,
+        type: file.type,
+        size: file.size
+    });
+
     ensureContainer();
     const id = ++idCounter;
     const el = createItem(id, file.name);
@@ -174,8 +196,9 @@ const ChunkedUpload = (() => {
       ac.signal.addEventListener('abort', onAbort);
 
       const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+      const mimeType = getMimeType(file);
 
-      initUpload(file.name, file.type, file.size, folderId)
+      initUpload(file.name, mimeType, file.size, folderId)
         .then(init => {
           sessionId = init.session_id;
           const parts = init.total_parts || totalParts;
@@ -184,7 +207,7 @@ const ChunkedUpload = (() => {
 
           function sendNext() {
             if (current >= parts) {
-              return completeUpload(sessionId, file.name, file.type, folderId).then(result => {
+              return completeUpload(sessionId, file.name, mimeType, folderId).then(result => {
                 updateItem(id, 100, true);
                 resolve(result);
               });
