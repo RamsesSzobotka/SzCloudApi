@@ -364,7 +364,7 @@ La documentacion OpenAPI 3.0 esta disponible en los controladores via atributos 
 php artisan l5-swagger:generate
 ```
 
-La interfaz UI estara disponible en `/docs` (configurar en `config/l5-swagger.php`).
+La interfaz UI estara disponible en `/api/documentation` (configurar en `config/l5-swagger.php`).
 
 ## Notas importantes
 
@@ -381,14 +381,14 @@ La interfaz UI estara disponible en `/docs` (configurar en `config/l5-swagger.ph
 | Ruta                    | Descripcion                                      |
 |-------------------------|--------------------------------------------------|
 | `http://localhost:8000` | Home / pagina principal de Laravel               |
-| `http://localhost:8000/docs` | Documentacion Swagger UI (OpenAPI 3.0)       |
+| `http://localhost:8000/api/documentation` | Documentacion Swagger UI (OpenAPI 3.0) |
 | `http://localhost:8000/test` | API Tester -- interfaz web para probar endpoints |
 
 ### Uso de Swagger
 
 Para probar endpoints autenticados desde Swagger UI:
 
-1. Abrir `http://localhost:8000/docs`
+1. Abrir `http://localhost:8000/api/documentation`
 2. Hacer login desde el endpoint `POST /api/login` con credenciales validas
 3. Al iniciar sesion, se genera una cookie httponly con el access token
 4. Swagger automaticamente incluira esa cookie en las siguientes peticiones
