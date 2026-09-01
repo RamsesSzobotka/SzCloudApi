@@ -127,6 +127,12 @@ const ChunkedUpload = (() => {
   }
   
   function initUpload(fileName, mimeType, totalSize, folderId) {
+      console.log({
+        name: fileName,
+        type: mimeType,
+        size: totalSize,
+        folder: folderId
+    });
     const base = typeof API !== 'undefined' ? API : '/api';
     return apiFetchWithRetry(`${base}/storage/upload/init`, {
       method: 'POST',
@@ -172,11 +178,6 @@ const ChunkedUpload = (() => {
   }
 
   function upload(file, folderId = null) {
-        console.log({
-        name: file.name,
-        type: file.type,
-        size: file.size
-    });
 
     ensureContainer();
     const id = ++idCounter;
