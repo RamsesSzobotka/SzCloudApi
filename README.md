@@ -50,39 +50,34 @@ SzCloudApi/
 
 ## Arquitectura
 
-```
-                    +-----------------+
-                    |   Cliente API   |
-                    |  (Frontend/App) |
-                    +--------+--------+
-                             |
-                             v
-                    +-----------------+
-                    |   Laravel API   |
-                    |   (PHP 8.3)    |
-                    +--------+--------+
-                             |
-              +--------------+--------------+
-              |              |              |
-              v              v              v
-     +----------------+ +---------+ +-----------+
-     |  PostgreSQL 16  | | Redis 7 | |   MinIO   |
-     |  (datos)        | | (cache) | |  (S3)     |
-     +----------------+ +---------+ +-----------+
+```mermaid
+flowchart TD
+    A[Cliente API<br/>Frontend/App] -->|HTTP| B[Laravel API<br/>PHP 8.3]
+    B -->|SQL| C[PostgreSQL 16<br/>datos]
+    B -->|Cache/Sesiones| D[Redis 7<br/>cache]
+    B -->|Objetos| E[MinIO<br/>S3-compatible]
 ```
 
-Flujo de autenticacion:
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant API as Laravel API
+    participant DB as PostgreSQL
 
-```
-  Login (email + password)
-       |
-       v
-  JWT Access Token (15 min)  -->  Cookie httponly
-  Refresh Token (7 dias)     -->  Cookie httponly (hash SHA-256 en BD)
-       |
-       v
-  GET /api/refresh  -->  Rota refresh token, genera nuevo access token
-  POST /api/logout  -->  Revoca sesion, limpia cookies
+    C->>API: POST /api/login (email + password)
+    API->>DB: Buscar usuario, crear sesion
+    API-->>C: access_token (15 min, httponly)
+    API-->>C: refresh_token (7 dias, httponly)
+
+    Note over C,API: Peticiones autenticadas usan cookie access_token
+
+    C->>API: GET /api/refresh
+    API->>DB: Validar y rotar refresh token
+    API-->>C: Nuevos tokens
+
+    C->>API: POST /api/logout
+    API->>DB: Revocar sesion
+    API-->>C: Limpiar cookies
 ```
 
 ## Requisitos previos
@@ -196,133 +191,123 @@ Los tokens JWT se gestionan via cookies httponly con los siguientes TTLs configu
 
 ## Endpoints de la API
 
-Todas las rutas estan prefijadas con `/api`.
+Todas las rutas estan prefijadas con `/api`. Las rutas estan organizadas por dominio en archivos separados dentro de `routes/api/`.
 
-### Autenticacion
+| Dominio              | Archivo                | Auth requerida |
+|----------------------|------------------------|----------------|
+| Autenticacion        | `AuthRoutes.php`       | Parcial        |
+| Gestion de usuario   | `UserRoutes.php`       | Si             |
+| Almacenamiento       | `StorageRoutes.php`    | Si             |
+| Expansiones          | `ExpansionRoutes.php`  | Parcial        |
+| Enlaces compartidos  | `ShareLinkRoutes.php`  | Parcial        |
 
-| Metodo | Ruta              | Descripcion              | Auth   |
-|--------|-------------------|--------------------------|--------|
-| POST   | `/register`       | Registrar usuario        | No     |
-| POST   | `/login`          | Iniciar sesion           | No     |
-| POST   | `/refresh`        | Renovar access token     | No     |
-| POST   | `/logout`         | Cerrar sesion            | Si     |
-| GET    | `/me`             | Obtener usuario actual   | Si     |
-
-### Gestion de usuario
-
-| Metodo | Ruta      | Descripcion                | Auth |
-|--------|-----------|----------------------------|------|
-| PUT    | `/user`   | Actualizar nombre/apellido | Si   |
-| PATCH  | `/user`   | Actualizar contrasena      | Si   |
-| DELETE | `/user`   | Eliminar cuenta            | Si   |
-
-### Almacenamiento -- Informacion
-
-| Metodo | Ruta               | Descripcion                           | Auth |
-|--------|--------------------|---------------------------------------|------|
-| GET    | `/storage/info`    | Uso de almacenamiento y plan actual   | Si   |
-| POST   | `/storage/verify`  | Verificar si cabe un archivo          | Si   |
-
-### Almacenamiento -- Carpetas
-
-| Metodo | Ruta                                      | Descripcion                              | Auth |
-|--------|-------------------------------------------|------------------------------------------|------|
-| GET    | `/storage/folder/check-name`              | Verificar nombre de carpeta              | Si   |
-| GET    | `/storage/folder/content/{folder_id?}`    | Listar contenido de carpeta              | Si   |
-| GET    | `/storage/folder/{folder_id}`             | Info de carpeta                          | Si   |
-| POST   | `/storage/folder`                         | Crear carpeta                            | Si   |
-| PATCH  | `/storage/folder/{folder_id}/rename`      | Renombrar carpeta                        | Si   |
-| PATCH  | `/storage/folder/{folder_id?}/move`       | Mover carpeta                            | Si   |
-| DELETE | `/storage/folder/{folder_id}`             | Eliminar carpeta (papelera)              | Si   |
-| POST   | `/storage/folder/{folder_id}/restore`     | Restaurar carpeta desde papelera         | Si   |
-| GET    | `/storage/folders/hierarchy`              | Arbol jerarquico de carpetas             | Si   |
-
-### Almacenamiento -- Archivos
-
-| Metodo | Ruta                                                   | Descripcion                                | Auth |
-|--------|--------------------------------------------------------|--------------------------------------------|------|
-| GET    | `/storage/file/check-name`                             | Verificar nombre de archivo                | Si   |
-| GET    | `/storage/file/{file_id}`                              | Info de archivo                            | Si   |
-| POST   | `/storage/file`                                        | Subir archivo (multipart, max 10MB)        | Si   |
-| PUT    | `/storage/file/{file_id}`                              | Reemplazar contenido de archivo            | Si   |
-| PATCH  | `/storage/file/{file_id}/rename`                       | Renombrar archivo                          | Si   |
-| PATCH  | `/storage/file/{file_id}/move`                         | Mover archivo                              | Si   |
-| DELETE | `/storage/file/{file_id}`                              | Eliminar archivo (papelera)                | Si   |
-| POST   | `/storage/file/{file_id}/restore`                      | Restaurar archivo desde papelera           | Si   |
-| GET    | `/storage/file/{file_id}/download`                     | URL temporaria de descarga (30 min)         | Si   |
-| GET    | `/storage/file/{file_id}/versions`                     | Lista de versiones                         | Si   |
-| GET    | `/storage/file/{file_id}/versions/check`               | Verificar versiones anteriores/posteriores  | Si   |
-| POST   | `/storage/file/{file_id}/versions/restore-back`        | Restaurar version anterior (Ctrl+Z)        | Si   |
-| POST   | `/storage/file/{file_id}/versions/restore-front`       | Restaurar version posterior (Ctrl+Shift+Z) | Si   |
-| GET    | `/storage/file/{file_id}/activity`                     | Historial de actividad                     | Si   |
-| POST   | `/storage/file/{file_id}/activity/restore-back`        | Deshacer ultima accion                     | Si   |
-| POST   | `/storage/file/{file_id}/activity/restore-front`       | Rehacer ultima accion deshecha             | Si   |
-
-### Papelera
-
-| Metodo | Ruta                        | Descripcion                      | Auth |
-|--------|-----------------------------|----------------------------------|------|
-| GET    | `/storage/trash`            | Listar elementos en papelera     | Si   |
-| DELETE | `/storage/trash`            | Vaciar papelera                  | Si   |
-| DELETE | `/storage/trash/{id}/permanent` | Eliminar permanentemente     | Si   |
-
-### Expansiones
-
-| Metodo | Ruta                   | Descripcion                     | Auth |
-|--------|------------------------|---------------------------------|------|
-| GET    | `/expansions`          | Listar expansiones disponibles  | No   |
-| GET    | `/expansions/{id}`     | Detalle de una expansion        | No   |
-| POST   | `/expansions/{id}/buy` | Comprar expansion               | Si   |
-
-### Enlaces compartidos
-
-| Metodo | Ruta                          | Descripcion                           | Auth |
-|--------|-------------------------------|---------------------------------------|------|
-| POST   | `/share/{token}`              | Obtener URL de descarga               | No   |
-| GET    | `/share/{token}/config`       | Configuracion del enlace (sin auth)   | No   |
-| GET    | `/share/{token}/data`         | Datos completos del enlace            | Si   |
-| POST   | `/share/file/{file_id}`       | Crear enlace compartido               | Si   |
+Documentacion completa de endpoints: **[routes/README.md](routes/README.md)**
 
 ## Modelos de datos
 
-```
-User (UUID)
- |-- 1:N --> Folder (UUID, self-referential: parent_id)
- |-- 1:N --> File (UUID, folder_id nullable = raiz)
- |-- N:N --> Expansion (via user_expansions)
- |
- +-- storage_limit (bytes)
- +-- storage_used (bytes)
- +-- file_count
+```mermaid
+erDiagram
+    User ||--o{ Folder : "tiene"
+    User ||--o{ File : "tiene"
+    User ||--o{ Session : "tiene"
+    User ||--o{ UserExpansion : "compra"
+    UserExpansion }o--|| Expansion : "referencia"
 
-File (UUID)
- |-- N:1 --> User
- |-- N:1 --> Folder (nullable)
- |-- 1:N --> FileVersion (historial, max 3 versiones)
- |-- 1:N --> FileActivity (log de cambios, max 3 registros)
- |-- 1:N --> ShareLink
+    User {
+        uuid id PK
+        string name
+        string email
+        bigint storage_limit
+        bigint storage_used
+        int file_count
+        timestamp timestamps
+    }
 
-Folder (UUID)
- |-- N:1 --> User
- |-- N:1 --> Folder (self-referential, nullable = raiz)
- |-- 1:N --> Folder (children)
- |-- 1:N --> File
+    Folder ||--o{ Folder : "hijo"
+    Folder ||--o{ File : "contiene"
+    Folder }o--|| User : "propietario"
+    Folder }o--o| Folder : "padre"
 
-ShareLink (UUID)
- |-- N:1 --> File
- +-- token_hash (SHA-256, no se almacena el token plano)
- +-- password_hash (nullable)
- +-- expires_at (nullable)
- +-- max_downloads (nullable)
- +-- download_count
+    Folder {
+        uuid id PK
+        uuid user_id FK
+        uuid parent_id FK "nullable, raiz si null"
+        string name
+        timestamp timestamps
+    }
 
-Expansion (auto-increment)
- +-- name, storage_bytes, price_cents
+    File ||--o{ FileVersion : "versiones"
+    File ||--o{ FileActivity : "actividad"
+    File ||--o{ ShareLink : "enlaces"
+    File }o--|| User : "propietario"
+    File }o--o| Folder : "ubicacion"
 
-Sesion (UUID)
- |-- N:1 --> User
- +-- refresh_token_hash (SHA-256)
- +-- expires_at, revoked_at
+    File {
+        uuid id PK
+        uuid user_id FK
+        uuid folder_id FK "nullable, raiz si null"
+        string name
+        string mime_type
+        bigint size
+        timestamp timestamps
+    }
+
+    FileVersion }o--|| File : "archivo"
+    FileVersion {
+        uuid id PK
+        uuid file_id FK
+        string object_name
+        bigint size
+        int version_number
+        timestamp created_at
+    }
+
+    FileActivity }o--|| File : "archivo"
+    FileActivity {
+        uuid id PK
+        uuid file_id FK
+        string type
+        string details
+        boolean undone
+        timestamp created_at
+    }
+
+    ShareLink }o--|| File : "archivo"
+    ShareLink {
+        uuid id PK
+        uuid file_id FK
+        string token_hash
+        string password_hash "nullable"
+        timestamp expires_at "nullable"
+        int max_downloads "nullable"
+        int download_count
+        timestamp timestamps
+    }
+
+    Expansion {
+        int id PK
+        string name
+        bigint storage_bytes
+        int price_cents
+    }
+
+    UserExpansion }o--|| User : "usuario"
+    UserExpansion {
+        int id PK
+        uuid user_id FK
+        int expansion_id FK
+        timestamp bought_at
+    }
+
+    Session }o--|| User : "usuario"
+    Session {
+        uuid id PK
+        uuid user_id FK
+        string refresh_token_hash
+        timestamp expires_at
+        timestamp revoked_at "nullable"
+        timestamp timestamps
+    }
 ```
 
 ## Funcionalidades clave
@@ -397,7 +382,7 @@ La interfaz UI estara disponible en `/docs` (configurar en `config/l5-swagger.ph
 |-------------------------|--------------------------------------------------|
 | `http://localhost:8000` | Home / pagina principal de Laravel               |
 | `http://localhost:8000/docs` | Documentacion Swagger UI (OpenAPI 3.0)       |
-| `http://localhost:8000/api`  | Ruta base de la API REST                      |
+| `http://localhost:8000/test` | API Tester -- interfaz web para probar endpoints |
 
 ### Uso de Swagger
 
@@ -409,8 +394,18 @@ Para probar endpoints autenticados desde Swagger UI:
 4. Swagger automaticamente incluira esa cookie en las siguientes peticiones
 5. No es necesario configurar headers manualmente -- la autenticacion se gestiona por cookies
 
-### Herramientas de prueba
+### API Tester (`/test`)
 
-- **Swagger UI**: `/docs` -- documentacion interactiva con Try It Out
-- **Postman / Insomnia**: importar desde `/docs` o usar los endpoints directamente
-- **cURL**: cualquier terminal con las cookies correspondientes
+Interfaz web integrada para probar los endpoints de la API sin herramientas externas. Accede a `http://localhost:8000/test`.
+
+**Funcionalidades:**
+
+- **Selector de metodo y URL**: elegir GET, POST, PUT, PATCH o DELETE e ingresar la ruta del endpoint (ej. `/api/me`)
+- **Body**: soporta JSON, Form Data o None
+- **Headers**: agregar headers customizados a la peticion
+- **Auth**: login y logout con gestion automatica de cookies httponly. Inicia sesion desde el modal de login con credenciales validas
+- **Acciones rapidas**: botones preconfigurados para `/me`, `/refresh`, `/storage/info`, `/folders`, `/trash`, `/logout`
+- **Helpers**: consultar perfil, expansiones, probar links compartidos, verificar espacio disponible, validar nombres de archivos
+- **Respuesta**: visualizar el body y headers de la respuesta con codigo de estado y tiempo de respuesta
+- **Consola**: registro de peticiones y respuestas en tiempo real
+- **Explorador de archivos**: panel lateral para navegar, subir, mover y gestionar archivos directamente desde la interfaz
