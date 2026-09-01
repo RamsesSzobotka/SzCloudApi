@@ -24,7 +24,6 @@
                 <a href="/" class="text-lg font-semibold tracking-tight text-white">SzCloud</a>
                 <div class="hidden md:flex items-center gap-6">
                     <a href="/api/documentation" class="text-sm text-[#a1a09a] hover:text-white transition-colors">Documentacion</a>
-                    <a href="/api/documentation" class="text-sm text-[#a1a09a] hover:text-white transition-colors">Swagger</a>
                     <a href="/test" class="text-sm text-[#a1a09a] hover:text-white transition-colors">Probar API</a>
                 </div>
                 <button id="menu-toggle" class="md:hidden text-[#a1a09a] hover:text-white" aria-label="Alternar menu">
@@ -38,7 +37,6 @@
         <div id="mobile-menu" class="hidden md:hidden border-t border-white/5 bg-[#0a0a0a]/95 backdrop-blur-md">
             <div class="px-4 py-4 space-y-3">
                 <a href="/api/documentation" class="block text-sm text-[#a1a09a] hover:text-white">Documentacion</a>
-                <a href="/api/documentation" class="block text-sm text-[#a1a09a] hover:text-white">Swagger</a>
                 <a href="/test" class="block text-sm text-[#a1a09a] hover:text-white">Probar API</a>
             </div>
         </div>
@@ -57,9 +55,6 @@
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <a href="/api/documentation" class="inline-flex items-center px-6 py-3 bg-white text-[#0a0a0a] font-medium text-sm rounded-lg hover:bg-white/90 transition-colors">
                     Ver Documentacion
-                </a>
-                <a href="/api/documentation" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
-                    Abrir Swagger
                 </a>
                 <a href="/test" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
                     Probar API
@@ -239,10 +234,7 @@ graph LR
             <p class="text-[#a1a09a] mb-8">Explora la API mediante Swagger, consulta la documentación detallada o utiliza el probador de API con interfaz gráfica para realizar pruebas de forma cómoda y sencilla.</p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <a href="/api/documentation" class="inline-flex items-center px-6 py-3 bg-white text-[#0a0a0a] font-medium text-sm rounded-lg hover:bg-white/90 transition-colors">
-                    Leer Documentacion
-                </a>
-                <a href="/api/documentation" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
-                    Abrir Swagger
+                    Ver Documentacion
                 </a>
                 <a href="/test" class="inline-flex items-center px-6 py-3 border border-white/10 text-white font-medium text-sm rounded-lg hover:bg-white/5 transition-colors">
                     Probar API
@@ -257,7 +249,6 @@ graph LR
             <span class="text-sm text-[#706f6c]">SzCloud &copy; 2026</span>
             <div class="flex items-center gap-6">
                 <a href="/api/documentation" class="text-sm text-[#706f6c] hover:text-white transition-colors">Documentacion</a>
-                <a href="/api/documentation" class="text-sm text-[#706f6c] hover:text-white transition-colors">Swagger</a>
                 <a href="/test" class="text-sm text-[#706f6c] hover:text-white transition-colors">Probar API</a>
             </div>
         </div>

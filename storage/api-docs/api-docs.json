@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "SzCloudApi",
-        "description": "API para almacenamiento en la nube — gestión de archivos, carpetas y papelera.",
+        "description": "API para almacenamiento en la nube — gestión de archivos, carpetas, papelera, etc. **Autenticación via cookies:** registrarse con `POST /api/register` e iniciar sesión con `POST /api/login`. Swagger automáticamente gestiona el token de sesión.",
         "version": "1.0.0"
     },
     "servers": [
@@ -299,6 +299,187 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/share/file/{file_id}": {
+            "post": {
+                "tags": [
+                    "ShareLinks"
+                ],
+                "summary": "Crear enlace de compartir",
+                "description": "Genera un enlace de compartir para un archivo. Requiere autenticación.",
+                "operationId": "3d1e9f52289b92d1c74d108eebd48a4d",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "in": "path",
+                        "description": "ID del archivo (UUID).",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "password": {
+                                        "description": "Contraseña opcional para proteger el enlace",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "password"
+                                    },
+                                    "expires_at": {
+                                        "description": "Fecha de expiración del enlace",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "format": "date-time"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Enlace creado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Archivo no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/share/{token}/data": {
+            "get": {
+                "tags": [
+                    "ShareLinks"
+                ],
+                "summary": "Obtener datos del enlace de compartir",
+                "description": "Retorna los datos completos de un enlace de compartir (URL firmada, permisos, etc). Requiere ser el propietario del archivo.",
+                "operationId": "fa64ab011ad936739392b8b38911581a",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "description": "Token del enlace de compartir.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Datos del enlace"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "404": {
+                        "description": "Enlace no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/share/{token}": {
+            "post": {
+                "tags": [
+                    "ShareLinks"
+                ],
+                "summary": "Acceder a enlace de compartir",
+                "description": "Retorna la URL de descarga del archivo compartido. Si el enlace tiene contraseña, debe proporcionarse en el body.",
+                "operationId": "e72a462ea6914b53dd2d8aa751aac700",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "description": "Token del enlace de compartir.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "password": {
+                                        "description": "Contraseña del enlace (si aplica)",
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "URL de descarga"
+                    },
+                    "400": {
+                        "description": "Contraseña incorrecta"
+                    },
+                    "404": {
+                        "description": "Enlace no encontrado o expirado"
+                    }
+                }
+            }
+        },
+        "/api/share/{token}/config": {
+            "get": {
+                "tags": [
+                    "ShareLinks"
+                ],
+                "summary": "Obtener configuración del enlace",
+                "description": "Retorna la configuración pública de un enlace de compartir (si requiere contraseña, si ha expirado, etc). Endpoint público.",
+                "operationId": "43110d544a3ceb659e5cbe73c49b5bc7",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "description": "Token del enlace de compartir.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Configuración del enlace"
+                    },
+                    "404": {
+                        "description": "Enlace no encontrado"
+                    }
+                }
             }
         },
         "/api/storage/folder": {
@@ -1958,7 +2139,7 @@
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
-                "description": "Autenticación JWT. Usa el botón Authorize con email y contraseña para obtener el token automáticamente.",
+                "description": "Autenticación via cookies httponly. Regístrate en POST /api/register e inicia sesión en POST /api/login — Swagger gestiona el token automáticamente.",
                 "bearerFormat": "JWT",
                 "scheme": "bearer"
             }
@@ -1984,6 +2165,10 @@
         {
             "name": "Trash",
             "description": "Papelera — listar, vaciar, eliminación permanente"
+        },
+        {
+            "name": "ShareLinks",
+            "description": "Enlaces de compartir — crear, acceder, configurar"
         },
         {
             "name": "Expansions",

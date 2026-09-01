@@ -10,13 +10,13 @@ use OpenApi\Attributes as OA;
 #[OA\Info(
     title: 'SzCloudApi',
     version: '1.0.0',
-    description: 'API para almacenamiento en la nube — gestión de archivos, carpetas, papelera, etc.'
+    description: 'API para almacenamiento en la nube — gestión de archivos, carpetas, papelera, etc. **Autenticación via cookies:** registrarse con `POST /api/register` e iniciar sesión con `POST /api/login`. Swagger automáticamente gestiona el token de sesión.'
 )]
 #[OA\Server(url: '/', description: 'Servidor de desarrollo')]
 #[OA\SecurityScheme(
     securityScheme: 'bearerAuth',
     type: 'http',
-    description: 'Autenticación JWT. Usa el botón Authorize con email y contraseña para obtener el token automáticamente.',
+    description: 'Autenticación via cookies httponly. Regístrate en POST /api/register e inicia sesión en POST /api/login — Swagger gestiona el token automáticamente.',
     scheme: 'bearer',
     bearerFormat: 'JWT'
 )]
@@ -25,4 +25,5 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Folders', description: 'CRUD de carpetas — crear, renombrar, mover, restaurar')]
 #[OA\Tag(name: 'Files', description: 'CRUD de archivos — subir, renombrar, mover, restaurar')]
 #[OA\Tag(name: 'Trash', description: 'Papelera — listar, vaciar, eliminación permanente')]
+#[OA\Tag(name: 'ShareLinks', description: 'Enlaces de compartir — crear, acceder, configurar')]
 class Swagger {}
