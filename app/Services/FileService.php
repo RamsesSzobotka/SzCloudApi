@@ -230,8 +230,10 @@ class FileService {
 
     public function restoreFile(File $file){
         return DB::transaction(function () use ($file) {
-            $folder = Folder::withTrashed()->where("id", $file->folder_id)->firstOrFail();
-            $this->folderService->restoreParentFolders($folder);
+            if ($file->folder_id !== null) {
+                $folder = Folder::withTrashed()->where("id", $file->folder_id)->firstOrFail();
+                $this->folderService->restoreParentFolders($folder);
+            }
 
             return $file->restore();
         });
