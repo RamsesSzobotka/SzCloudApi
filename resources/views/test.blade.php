@@ -113,7 +113,7 @@
         <option value="PATCH" class="method-patch">PATCH</option>
         <option value="DELETE" class="method-delete">DELETE</option>
       </select>
-      <input id="req-url" type="text" class="url-input" value="/api/me" placeholder="/api/...">
+      <input id="req-url" type="text" class="url-input" value="{{ url('/api/me') }}" placeholder="{{ url('/api') }}/...">
       <button class="send-btn" onclick="sendRequest()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Enviar

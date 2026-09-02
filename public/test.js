@@ -1,4 +1,5 @@
 const API = '/api';
+const BASE_URL = window.location.origin;
 let currentFolderId = null;
 let currentView = 'files';
 let currentPage = { folders: 1, files: 1 };
@@ -172,6 +173,31 @@ async function doLogout() {
 }
 
 // ═══════════════════════════════════════════
+//  RESPONSE PANEL HELPER
+// ═══════════════════════════════════════════
+
+function showResponse(method, path, status, statusText, elapsed, data, contentType, headers) {
+  const statusEl = $('res-status');
+  statusEl.textContent = `${status} ${statusText}`;
+  statusEl.className = 'res-status ' + (status >= 200 && status < 300 ? 'ok' : 'err');
+  $('res-time').textContent = `${elapsed}ms`;
+
+  const bodyEl = $('res-body');
+  if (contentType && contentType.includes('json')) {
+    bodyEl.textContent = JSON.stringify(data, null, 2);
+  } else {
+    bodyEl.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  }
+
+  const headersEl = $('res-headers');
+  if (headers) {
+    let headersText = '';
+    headers.forEach((v, k) => { headersText += `${k}: ${v}\n`; });
+    headersEl.textContent = headersText;
+  }
+}
+
+// ═══════════════════════════════════════════
 //  API CALL HELPER (for file browser)
 // ═══════════════════════════════════════════
 
@@ -190,18 +216,26 @@ async function apiCall(method, path, body = null, isForm = false, retried = fals
   if (body && !isForm) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   else if (body && isForm) { opts.body = body; }
   log(`> ${method} ${path}`, 'log-info');
+  const startTime = performance.now();
   try {
     const res = await fetch(`${API}${path}`, opts);
+    const elapsed = Math.round(performance.now() - startTime);
     if (res.status === 401 && !retried && !['/login', '/register', '/refresh'].includes(path)) {
       const refreshed = await tryRefresh();
       if (refreshed) return apiCall(method, path, body, isForm, true);
     }
     const ct = res.headers.get('content-type') || '';
     const data = ct.includes('json') ? await res.json() : await res.text();
+    showResponse(method, path, res.status, res.statusText, elapsed, data, ct, res.headers);
     if (!res.ok) { logJson(`[${res.status}]`, data, false); return null; }
     logJson(`[${res.status}]`, data);
     return data;
-  } catch (e) { log(`Error: ${e.message}`, 'log-err'); return null; }
+  } catch (e) {
+    const elapsed = Math.round(performance.now() - startTime);
+    showResponse(method, path, 0, 'Error', elapsed, e.message, null, null);
+    log(`Error: ${e.message}`, 'log-err');
+    return null;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -210,8 +244,11 @@ async function apiCall(method, path, body = null, isForm = false, retried = fals
 
 async function sendRequest() {
   const method = $('req-method').value;
-  const path = $('req-url').value.trim();
-  if (!path) return toast('Ingresa una ruta', 'warning');
+  const url = $('req-url').value.trim();
+  if (!url) return toast('Ingresa una ruta', 'warning');
+
+  // What's in the input IS the URL to fetch - no transformation
+  const fetchUrl = url.startsWith('http') ? url : `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 
   // Build headers
   const headers = {};
@@ -242,7 +279,7 @@ async function sendRequest() {
 
   // Fire the request
   const startTime = performance.now();
-  log(`> ${method} ${path}`, 'log-info');
+  log(`> ${method} ${url}`, 'log-info');
 
   try {
     const opts = { method, headers: { ...headers }, credentials: 'same-origin' };
@@ -253,45 +290,23 @@ async function sendRequest() {
       opts.body = JSON.stringify(body);
     }
 
-    const res = await fetch(`${API}${path}`, opts);
+    const res = await fetch(fetchUrl, opts);
     const elapsed = Math.round(performance.now() - startTime);
     const ct = res.headers.get('content-type') || '';
     const data = ct.includes('json') ? await res.json() : await res.text();
 
-    // Show response
-    const statusEl = $('res-status');
-    statusEl.textContent = `${res.status} ${res.statusText}`;
-    statusEl.className = 'res-status ' + (res.ok ? 'ok' : 'err');
-    $('res-time').textContent = `${elapsed}ms`;
-
-    // Response body
-    const bodyEl = $('res-body');
-    if (ct.includes('json')) {
-      bodyEl.textContent = JSON.stringify(data, null, 2);
-    } else {
-      bodyEl.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-    }
-
-    // Response headers
-    const headersEl = $('res-headers');
-    let headersText = '';
-    res.headers.forEach((v, k) => { headersText += `${k}: ${v}\n`; });
-    headersEl.textContent = headersText;
-
+    showResponse(method, url, res.status, res.statusText, elapsed, data, ct, res.headers);
     logJson(`[${res.status}]`, data, res.ok);
   } catch (e) {
     const elapsed = Math.round(performance.now() - startTime);
-    $('res-status').textContent = 'Error';
-    $('res-status').className = 'res-status err';
-    $('res-time').textContent = `${elapsed}ms`;
-    $('res-body').textContent = e.message;
+    showResponse(method, url, 0, 'Error', elapsed, e.message, null, null);
     log(`Error: ${e.message}`, 'log-err');
   }
 }
 
 function quickAuth(method, path) {
   $('req-method').value = method;
-  $('req-url').value = path;
+  $('req-url').value = `${BASE_URL}/api${path}`;
   if (method === 'GET' || method === 'DELETE') {
     document.querySelector('input[name="body-type"][value="none"]').checked = true;
     switchBodyType('none');
