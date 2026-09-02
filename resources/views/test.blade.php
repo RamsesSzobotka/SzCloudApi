@@ -29,6 +29,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       Response
     </button>
+    <button class="header-btn" id="btn-info" onclick="openWelcomeModal()" title="Guia de uso">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </button>
     <button class="header-btn" id="btn-login" onclick="openLoginModal()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
       Login
@@ -229,6 +232,132 @@
 </div>
 
 <!-- ═══ MODALS ═══ -->
+
+<!-- Welcome Modal -->
+<div id="welcome-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeWelcomeModal()">
+  <div class="modal welcome-panel">
+    <div class="modal-header-row">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Guia de Uso
+      </h3>
+      <button class="modal-close" onclick="closeWelcomeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="welcome-body">
+
+      <div class="welcome-section">
+        <h4>Bienvenido al SzCloud API Tester</h4>
+        <p>Una herramienta para probar las rutas de tu API de forma rapida y sencilla. Puedes enviar peticiones, ver respuestas y gestionar archivos todo desde aqui.</p>
+      </div>
+
+      <div class="welcome-section">
+        <h4>1. Registrar e Iniciar Sesion</h4>
+        <p>Para usar la API primero necesitas una cuenta. Haz clic en <strong>Login</strong> en la barra superior:</p>
+        <ul>
+          <li><strong>Register</strong> - Crea una cuenta nueva con email y password.</li>
+          <li><strong>Login</strong> - Inicia sesion con tu cuenta existente.</li>
+        </ul>
+        <p>Una vez autenticado, el indicador cambiara a <span style="color:var(--success)">conectado</span> y podras usar todas las rutas.</p>
+      </div>
+
+      <div class="welcome-section">
+        <h4>2. Probar Rutas (Sender Personalizado)</h4>
+        <p>En la parte central esta la barra de peticiones:</p>
+        <ul>
+          <li>Selecciona el <strong>metodo</strong> (GET, POST, PUT, PATCH, DELETE).</li>
+          <li>Escribe la <strong>ruta</strong> en el campo URL (ej: <code>/api/me</code>).</li>
+          <li>Haz clic en <strong>Enviar</strong> para ejecutar la peticion.</li>
+        </ul>
+        <p>Si la ruta necesita autenticacion, el token se envia automaticamente.</p>
+      </div>
+
+      <div class="welcome-section">
+        <h4>3. Area de Cuerpo (Body)</h4>
+        <p>En la pestana <strong>Body</strong> puedes configurar el contenido de tu peticion:</p>
+        <ul>
+          <li><strong>JSON</strong> - Escribe directamente en formato JSON.</li>
+          <li><strong>Form Data</strong> - Agrega campos uno por uno con boton "+"</li>
+          <li><strong>None</strong> - Sin cuerpo (para GETs).</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section">
+        <h4>4. Headers y Auth</h4>
+        <ul>
+          <li><strong>Headers</strong> - Agrega headers personalizados a tu peticion.</li>
+          <li><strong>Auth</strong> - Muestra el estado de autenticacion. Puedes usar los botones para verificar tu sesion.</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section">
+        <h4>5. Panel Izquierdo - Explorador de Archivos</h4>
+        <p>A la izquierda esta el gestor de archivos:</p>
+        <ul>
+          <li>Explora carpetas y archivos de tu almacenamiento.</li>
+          <li>Sube archivos con el boton de subir (normal o por chunks).</li>
+          <li>Crea carpetas, renombra, mueve y elimina archivos.</li>
+          <li>Haz clic derecho sobre un archivo para ver mas opciones.</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section">
+        <h4>6. Consola (Parte Inferior)</h4>
+        <p>Abajo se muestra la <strong>Console</strong> con el historial de peticiones:</p>
+        <ul>
+          <li>Cada peticion que envies aparece aqui con su metodo, ruta y estado.</li>
+          <li>Usa el boton de basura para limpiar la consola.</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section">
+        <h4>7. Panel Derecho - Respuestas</h4>
+        <p>A la derecha se muestra la respuesta de cada peticion:</p>
+        <ul>
+          <li><strong>Body</strong> - El contenido de la respuesta (JSON formateado).</li>
+          <li><strong>Headers</strong> - Los headers que devuelve el servidor.</li>
+          <li>El tiempo de respuesta y codigo de estado se muestran arriba.</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section">
+        <h4>8. Helpers (Peticiones Rapidas)</h4>
+        <p>En la pestana <strong>Helpers</strong> tienes atajos para comunes:</p>
+        <ul>
+          <li><strong>Perfil</strong> - Ver y editar tu perfil.</li>
+          <li><strong>Expansiones</strong> - Gestionar expansiones de tu cuenta.</li>
+          <li><strong>Probar link</strong> - Verificar un link de comparticion.</li>
+          <li><strong>Verificar</strong> - Comprobar espacio disponible.</li>
+          <li><strong>Check nombre</strong> - Verificar si un nombre de archivo esta disponible.</li>
+          <li><strong>Chequear vers.</strong> - Verificar la version de la API.</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section">
+        <h4>9. Acciones Rapidas</h4>
+        <p>Debajo de la barra de URL hay botones para rutas comunes:</p>
+        <ul>
+          <li><code>GET /me</code> - Ver datos del usuario actual.</li>
+          <li><code>POST /refresh</code> - Refrescar token de sesion.</li>
+          <li><code>GET /storage/info</code> - Ver informacion del almacenamiento.</li>
+          <li><code>GET /folders</code> - Listar carpetas.</li>
+          <li><code>GET /trash</code> - Ver papelera.</li>
+          <li><code>POST /logout</code> - Cerrar sesion.</li>
+        </ul>
+      </div>
+
+      <div class="welcome-section welcome-tip">
+        <h4>Consejo</h4>
+        <p>Puedes redimensionar los paneles arrastrando los bordes entre ellos. Los botones en la barra superior muestran u ocultan los paneles.</p>
+      </div>
+
+    </div>
+    <div class="modal-actions-row">
+      <button class="btn-primary" onclick="closeWelcomeModal()">Entendido</button>
+    </div>
+  </div>
+</div>
 
 <!-- Login Modal -->
 <div id="login-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeLoginModal()">

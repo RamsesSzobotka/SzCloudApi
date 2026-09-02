@@ -11,6 +11,16 @@ let folderHierarchy = null;
 
 const $ = id => document.getElementById(id);
 
+// ── Welcome Modal ──
+function openWelcomeModal() { $('welcome-modal').classList.remove('hidden'); }
+function closeWelcomeModal() {
+  $('welcome-modal').classList.add('hidden');
+  localStorage.setItem('szcloud_welcome_seen', '1');
+}
+window.addEventListener('DOMContentLoaded', () => {
+  if (!localStorage.getItem('szcloud_welcome_seen')) openWelcomeModal();
+});
+
 const toast = (msg, icon = 'success') => {
   Swal.mixin({ toast: true, position: 'bottom-end', showConfirmButton: false, timer: 2000, timerProgressBar: true, background: '#1a1a2e', color: '#e2e8f0', border: '1px solid #2a2a4a' }).fire({ icon, title: msg });
 };
