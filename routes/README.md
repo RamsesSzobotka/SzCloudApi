@@ -109,6 +109,26 @@ sequenceDiagram
 | POST   | `/storage/file/{file_id}/activity/restore-back`        | Deshacer ultima accion                     | Si   |
 | POST   | `/storage/file/{file_id}/activity/restore-front`       | Rehacer ultima accion deshecha             | Si   |
 
+## Almacenamiento -- Subida por Chunks (Multipart)
+
+**Archivo:** `StorageRoutes.php`
+
+| Metodo | Ruta                                      | Descripcion                                       | Auth |
+|--------|-------------------------------------------|---------------------------------------------------|------|
+| POST   | `/storage/upload/init`                    | Iniciar sesion de subida multipart                | Si   |
+| PUT    | `/storage/upload/{session_id}/chunk`      | Subir un chunk individual                         | Si   |
+| POST   | `/storage/upload/{session_id}/complete`   | Completar subida y ensamblar archivo              | Si   |
+| POST   | `/storage/upload/{session_id}/abort`      | Abortar sesion de subida                          | Si   |
+
+Flujo de 3 pasos: **init** -> **chunk** (repetir) -> **complete**. Cada chunk tiene un tamano por defecto de 5MB. Se usa internamente la API multipart de S3 (MinIO).
+
+### Cuando usar cada metodo
+
+| Metodo          | Tamano maximo | Uso ideal                                    |
+|-----------------|---------------|----------------------------------------------|
+| Subida directa  | 10MB          | Archivos pequenos, una sola peticion         |
+| Subida por chunks | Sin limite practico | Archivos grandes, conexiones inestables |
+
 ## Papelera
 
 **Archivo:** `StorageRoutes.php`

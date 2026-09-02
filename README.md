@@ -372,7 +372,7 @@ La interfaz UI estara disponible en `/api/documentation` (configurar en `config/
 - El access token expira a los 15 minutos. El refresh token dura 7 dias y se rota en cada renovacion.
 - La sesion tiene un limite de vida util de 30 dias desde su creacion.
 - Los nombres de archivos y carpetas no pueden contener los caracteres: `/ \ : " ' < > |`. El endpoint `check-name` permite verificar conflictos antes de crear/mover/renombrar.
-- El limite de subida de archivos es de 10MB (`max:10485760` bytes en la validacion).
+- Subida directa: limite de 10MB (`max:10485760` bytes), una sola peticion multipart. Para archivos grandes se dispone de subida por chunks (multipart S3, 5MB por chunk) sin limite practico de tamano.
 - Todos los IDs de modelos (excepto Expansion) son UUIDs.
 - La eliminacion de usuarios elimina todos sus archivos, carpetas, enlaces y sesiones de forma permanente.
 
