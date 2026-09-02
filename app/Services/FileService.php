@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use App\utils\MinIOHelper;
 use App\Models\UploadSession;
 use \App\utils\ExceptionCustom\StorageException;
+use App\utils\RedisUploadHelper;
 
 class FileService {
 
@@ -57,6 +58,8 @@ class FileService {
                 "expires_at" => now()->addHours(24),
             ]);
 
+            RedisUploadHelper::init($session->id, $totalParts, $totalSize);
+
             return [
                 'session_id' => $session->id,
                 'total_parts' => $totalParts,
@@ -66,6 +69,11 @@ class FileService {
     }
 
     public function uploadChunk(string $sessionId, int $partNumber, $resource, int $chunkSize): array {
+        $cached = RedisUploadHelper::isPartUploaded($sessionId, $partNumber);
+        if ($cached) {
+            return ['part_number' => $cached['part_number'], 'etag' => $cached['etag']];
+        }
+
         $session = UploadSession::where('id', $sessionId)
             ->where('status', 'uploading')
             ->firstOrFail();
@@ -74,13 +82,7 @@ class FileService {
             $session->storage_path, $session->upload_id, $partNumber, $resource, $chunkSize
         );
 
-        $parts = $session->parts ?? [];
-        $parts[] = $partResult;
-
-        $session->update([
-            'parts' => $parts,
-            'uploaded_size' => $session->uploaded_size + $chunkSize,
-        ]);
+        RedisUploadHelper::addPart($sessionId, $partNumber, $partResult['etag'], $chunkSize);
 
         return ['part_number' => $partResult['part_number'], 'etag' => $partResult['etag']];
     }
@@ -91,9 +93,26 @@ class FileService {
                 ->where('status', 'uploading')
                 ->firstOrFail();
 
+            if (RedisUploadHelper::hasErrors($sessionId)) {
+                RedisUploadHelper::cleanup($sessionId);
+                MinIOHelper::abortMultipartUpload($session->storage_path, $session->upload_id);
+                $session->update(['status' => 'failed']);
+                throw new StorageException("La subida no pudo completarse por errores intermedios");
+            }
+
+            $parts = RedisUploadHelper::getParts($sessionId);
+            $uploadedSize = RedisUploadHelper::getUploadedSize($sessionId);
+
             MinIOHelper::completeMultipartUpload(
-                $session->storage_path, $session->upload_id, $session->parts
+                $session->storage_path, $session->upload_id, $parts
             );
+
+            $session->update([
+                'parts' => $parts,
+                'uploaded_size' => $uploadedSize,
+            ]);
+
+            RedisUploadHelper::cleanup($sessionId);
 
             $stream = MinIOHelper::getStream($session->storage_path);
             $context = hash_init('sha256');
@@ -140,6 +159,7 @@ class FileService {
             MinIOHelper::abortMultipartUpload($session->storage_path, $session->upload_id);
         }
 
+        RedisUploadHelper::cleanup($sessionId);
         $session->update(['status' => 'cancelled']);
 
         return true;
