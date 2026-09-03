@@ -228,11 +228,32 @@ class FileService {
         return $file->delete();
     }
 
-    public function restoreFile(File $file){
-        return DB::transaction(function () use ($file) {
+    public function restoreFile(File $file, bool $overwrite = false){
+        return DB::transaction(function () use ($file, $overwrite) {
             if ($file->folder_id !== null) {
                 $folder = Folder::withTrashed()->where("id", $file->folder_id)->firstOrFail();
                 $this->folderService->restoreParentFolders($folder);
+            }
+
+            $conflict = File::where("user_id", $file->user_id)
+                ->where("folder_id", $file->folder_id)
+                ->where("original_name", $file->original_name)
+                ->where("id", "!=", $file->id)
+                ->whereNull("deleted_at")
+                ->first();
+
+            if ($conflict) {
+                if ($overwrite) {
+                    $this->replaceFileFromStorage($conflict, $file);
+                    $this->deletePermanentFile($file);
+                    return $conflict;
+                } else {
+                    $file->update([
+                        "original_name" => self::findAvailableName(
+                            $file->user_id, $file->folder_id, $file->original_name, $file->extension, $file->id
+                        )
+                    ]);
+                }
             }
 
             return $file->restore();
@@ -293,6 +314,46 @@ class FileService {
         });
     }
 
+    public function replaceFileFromStorage(File $target, File $source){
+        return DB::transaction(function () use ($target, $source) {
+            if (!$this->storageUsageService->storageVerify($target->user, $source->size)) {
+                throw new StorageException("No tienes suficiente espacio de almacenamiento");
+            }
+
+            $oldVersion = $target->versions()->orderBy('version', 'desc')->first();
+            $oldStream = $this->readVersionContent($target, $oldVersion);
+            $oldSize = $target->size;
+
+            $sourceStream = MinIOHelper::getStream($source->storage_path);
+            $extension = $source->extension;
+            $storageName = Str::uuid() . '.' . $extension;
+            $userId = $target->user_id;
+            $storagePath = "users/{$userId}/files/{$storageName}";
+
+            [$ok, $hash] = MinIOHelper::putStreamWithHash($storagePath, $sourceStream);
+            fclose($sourceStream);
+
+            $target->update([
+                "storage_name" => $storageName,
+                "storage_path" => $storagePath,
+                "mime_type" => $source->mime_type,
+                "extension" => $extension,
+                "size" => $source->size,
+                "hash" => $hash,
+            ]);
+
+            $this->addFileVersion($target, $oldStream);
+
+            $this->storageUsageService->deleteFile($target->user, $oldSize);
+            $this->storageUsageService->addFile($target->user, $source->size);
+
+            $this->deleteOldVersion($target);
+            $this->addFileActivity($target, 'replace', ["hash" => $oldVersion?->hash], ["hash" => $hash, "source_file_id" => $source->id]);
+
+            return $target;
+        });
+    }
+
     public function deletePermanentFile(File $file){
         foreach ($file->versions as $version) {
             MinIOHelper::delete($version->storage_path);
@@ -337,19 +398,19 @@ class FileService {
     }
 
     public function checkFileName(string $userId, ?string $folderId, string $name): array {
-        $exists = File::where("user_id", $userId)
+        $existing = File::where("user_id", $userId)
             ->where("folder_id", $folderId)
             ->where("original_name", $name)
-            ->exists();
+            ->first();
 
-        if (!$exists) {
-            return ["exists" => false, "suggested_name" => null];
+        if (!$existing) {
+            return ["exists" => false, "suggested_name" => null, "file_id" => null];
         }
 
         $extension = pathinfo($name, PATHINFO_EXTENSION);
         $suggested = self::findAvailableName($userId, $folderId, $name, $extension ?: null);
 
-        return ["exists" => true, "suggested_name" => $suggested];
+        return ["exists" => true, "suggested_name" => $suggested, "file_id" => $existing->id];
     }
 
     public function moveFile(File $file, ?string $folderId = null){

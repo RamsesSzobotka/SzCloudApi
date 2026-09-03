@@ -202,6 +202,8 @@ class FolderService {
 
         $this->moveChildFolders($source->id, $target->id);
 
+        \App\Models\UploadSession::where("folder_id", $source->id)->update(["folder_id" => null]);
+
         $source->forceDelete();
     }
 

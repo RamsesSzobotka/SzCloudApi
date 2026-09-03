@@ -494,19 +494,31 @@ class StorageController extends Controller
         parameters: [
             new OA\Parameter(name: "file_id", in: "path", required: true, description: "ID del archivo (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),
         ],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\MediaType(
+                mediaType: "application/json",
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: "overwrite", type: "boolean", description: "Si existe un archivo con el mismo nombre, reemplazarlo en lugar de renombrar con (n)", default: false),
+                    ]
+                )
+            )
+        ),
         responses: [
-            new OA\Response(response: 200, description: "Archivo restaurado"),
+            new OA\Response(response: 200, description: "Archivo restaurado (o reemplazado si overwrite=true)"),
             new OA\Response(response: 400, description: "Archivo no está en papelera"),
             new OA\Response(response: 401, description: "No autenticado"),
             new OA\Response(response: 404, description: "Archivo no encontrado"),
         ]
     )]
-    public function restoreFile(string $file_id){
-        return $this->handleStorageErrors(function() use ($file_id){
+    public function restoreFile(string $file_id, Request $request){
+        return $this->handleStorageErrors(function() use ($file_id, $request){
             $user = Security::isOwner();
             return response()->json(
                 $this->fileService->restoreFile(
-                    $this->fileService->getTrashedFile($user->id,$file_id)
+                    $this->fileService->getTrashedFile($user->id,$file_id),
+                    $request->boolean('overwrite', false)
                 )
             );
         });
@@ -527,6 +539,7 @@ class StorageController extends Controller
                 required: ["destination_folder_id"],
                 properties: [
                     new OA\Property(property: "destination_folder_id", type: "string", format: "uuid", nullable: true, description: "ID de la carpeta destino. Null para raíz."),
+                    new OA\Property(property: "overwrite", type: "boolean", description: "Si existe un archivo con el mismo nombre en el destino, reemplazarlo", default: false),
                 ]
             )
         ),
@@ -542,6 +555,20 @@ class StorageController extends Controller
 
             $file = $this->fileService->getFile($user->id, $file_id);
 
+            if ($request->boolean('overwrite')) {
+                $conflict = \App\Models\File::where("user_id", $user->id)
+                    ->where("folder_id", $request->destination_folder_id)
+                    ->where("original_name", $file->original_name)
+                    ->where("id", "!=", $file->id)
+                    ->first();
+
+                if ($conflict) {
+                    $this->fileService->replaceFileFromStorage($conflict, $file);
+                    $this->fileService->deletePermanentFile($file);
+                    return response()->json($conflict);
+                }
+            }
+
             return response()->json(
                 $this->fileService->moveFile(
                     $file,
@@ -555,7 +582,7 @@ class StorageController extends Controller
         path: "/api/storage/folder/{folder_id?}/move",
         tags: ["Folders"],
         summary: "Mover carpeta",
-        description: "Mueve una carpeta a otra ubicación. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente. Se recomienda usar check-name antes de mover para verificar conflictos.",
+        description: "Mueve una carpeta a otra ubicación. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan automáticamente: el contenido de la carpeta con menos elementos se migra a la existente.",
         security: [["bearerAuth" => []]],
         parameters: [
             new OA\Parameter(name: "folder_id", in: "path", required: true, description: "ID de la carpeta a mover (UUID).", schema: new OA\Schema(type: "string", format: "uuid")),

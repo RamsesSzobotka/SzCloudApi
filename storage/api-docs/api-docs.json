@@ -1244,9 +1244,26 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "overwrite": {
+                                        "description": "Si existe un archivo con el mismo nombre, reemplazarlo en lugar de renombrar con (n)",
+                                        "type": "boolean",
+                                        "default": false
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Archivo restaurado"
+                        "description": "Archivo restaurado (o reemplazado si overwrite=true)"
                     },
                     "400": {
                         "description": "Archivo no está en papelera"
@@ -1301,6 +1318,11 @@
                                             "null"
                                         ],
                                         "format": "uuid"
+                                    },
+                                    "overwrite": {
+                                        "description": "Si existe un archivo con el mismo nombre en el destino, reemplazarlo",
+                                        "type": "boolean",
+                                        "default": false
                                     }
                                 },
                                 "type": "object"
@@ -1332,7 +1354,7 @@
                     "Folders"
                 ],
                 "summary": "Mover carpeta",
-                "description": "Mueve una carpeta a otra ubicación. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan: el contenido de la carpeta con menos elementos se migra a la existente. Se recomienda usar check-name antes de mover para verificar conflictos.",
+                "description": "Mueve una carpeta a otra ubicación. Si ya existe una carpeta con el mismo nombre en el destino, se fusionan automáticamente: el contenido de la carpeta con menos elementos se migra a la existente.",
                 "operationId": "71d67421def5ec6bc28b7fce9c7ab15c",
                 "parameters": [
                     {

@@ -15,6 +15,7 @@ class MoveItemRequest extends FormRequest
     {
         return [
             "destination_folder_id" => ["nullable", "string"],
+            "overwrite" => ["nullable", "boolean"],
         ];
     }
 }
