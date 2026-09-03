@@ -143,20 +143,22 @@ async function doRegister() {
   const email = $('login-email').value;
   const pass = $('login-pass').value;
   if (!email || !pass) return Swal.fire({ icon: 'warning', title: 'Completa los campos', background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+  closeLoginModal();
   Swal.fire({ title: 'Registrando...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
   const d = await apiCall('POST', '/register', { name: email.split('@')[0], email, password: pass, password_confirmation: pass });
   Swal.close();
-  if (d) { await updateStatus(); toast('Registrado'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
+  if (d) { await updateStatus(); toast('Registrado'); loadStorageInfo(); browseRoot(); }
 }
 
 async function doLogin() {
   const email = $('login-email').value;
   const pass = $('login-pass').value;
   if (!email || !pass) return Swal.fire({ icon: 'warning', title: 'Completa los campos', background: '#1a1a2e', color: '#e2e8f0', confirmButtonColor: '#6366f1' });
+  closeLoginModal();
   Swal.fire({ title: 'Iniciando sesión...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background: '#1a1a2e', color: '#e2e8f0' });
   const d = await apiCall('POST', '/login', { email, password: pass });
   Swal.close();
-  if (d) { await updateStatus(); toast('Sesión iniciada'); closeLoginModal(); loadStorageInfo(); browseRoot(); }
+  if (d) { await updateStatus(); toast('Sesión iniciada'); loadStorageInfo(); browseRoot(); }
 }
 
 async function doLogout() {
@@ -426,6 +428,7 @@ async function browseTrash() {
   currentFolderId = null;
   const d = await apiCall('GET', '/storage/trash');
   if (!d) return toast('No autenticado o error', 'error');
+  currentTrashItems = [...(d.folders || []).map(f => ({ ...f, type: 'folder' })), ...(d.files || []).map(f => ({ ...f, type: 'file', name: f.original_name }))];
 
   const bc = $('breadcrumb');
   bc.innerHTML = '';
@@ -499,9 +502,38 @@ function renderTrash(data) {
 }
 
 async function restoreItem(type, id) {
+  if (type === 'file') {
+    const item = currentTrashItems.find(i => i.id == id && i.type === type);
+    if (item) {
+      const params = new URLSearchParams({ name: item.name });
+      if (item.folder_id) params.set('folder_id', item.folder_id);
+      const check = await apiCall('GET', `/storage/file/check-name?${params}`);
+      if (check && check.exists) {
+        pendingRestoreConflict = { type, id, name: item.name, conflicting_file_id: check.file_id };
+        $('restore-conflict-modal-body').innerHTML =
+          `Ya existe un archivo llamado <span class="conflict-name">${esc(item.name)}</span> en la carpeta destino.<br><br>¿Reemplazar el archivo existente?`;
+        $('restore-conflict-modal').classList.remove('hidden');
+        return;
+      }
+    }
+  }
   const endpoint = type === 'folder' ? `/storage/folder/${id}/restore` : `/storage/file/${id}/restore`;
   const d = await apiCall('POST', endpoint);
   if (d) { toast('Restaurado'); browseTrash(); loadStorageInfo(); }
+}
+
+function closeRestoreConflictModal() {
+  $('restore-conflict-modal').classList.add('hidden');
+  pendingRestoreConflict = null;
+}
+
+async function confirmRestoreReplace() {
+  if (!pendingRestoreConflict) return;
+  const { type, id } = pendingRestoreConflict;
+  closeRestoreConflictModal();
+  const endpoint = type === 'folder' ? `/storage/folder/${id}/restore` : `/storage/file/${id}/restore`;
+  const d = await apiCall('POST', endpoint, { overwrite: true });
+  if (d) { toast('Restaurado y reemplazado'); browseTrash(); loadStorageInfo(); }
 }
 
 async function permanentDeleteItem(type, id) {
@@ -795,12 +827,68 @@ function selectMoveFolder(el, id) {
 
 async function confirmMove() {
   if (!moveTarget) return;
-  const { type, id } = moveTarget;
+  const { type, id, name } = moveTarget;
+
+  if (type === 'file') {
+    const params = new URLSearchParams({ name: name });
+    if (moveSelectedFolder) params.set('folder_id', moveSelectedFolder);
+
+    const check = await apiCall('GET', `/storage/file/check-name?${params}`);
+    if (check && check.exists) {
+      pendingMoveConflict = {
+        type, id, name,
+        destination_folder_id: moveSelectedFolder || null,
+        conflicting_file_id: check.file_id
+      };
+      closeMoveModal();
+      $('move-conflict-modal-body').innerHTML =
+        `Ya existe un archivo llamado <span class="conflict-name">${esc(name)}</span> en la carpeta destino.<br><br>` +
+        `¿Reemplazar el archivo existente?`;
+      $('move-conflict-modal').classList.remove('hidden');
+      return;
+    }
+  } else if (type === 'folder') {
+    const params = new URLSearchParams({ name: name });
+    if (moveSelectedFolder) params.set('parent_id', moveSelectedFolder);
+
+    const check = await apiCall('GET', `/storage/folder/check-name?${params}`);
+    if (check && check.exists) {
+      pendingMoveConflict = {
+        type, id, name,
+        destination_folder_id: moveSelectedFolder || null,
+        conflicting_folder_id: check.conflicting_folder?.id
+      };
+      closeMoveModal();
+      $('move-conflict-modal-body').innerHTML =
+        `Ya existe una carpeta llamada <span class="conflict-name">${esc(name)}</span> en la carpeta destino.<br><br>` +
+        `¿Reemplazar la carpeta existente? (Se fusionarán los contenidos)`;
+      $('move-conflict-modal').classList.remove('hidden');
+      return;
+    }
+  }
+
   const endpoint = type === 'folder' ? `/storage/folder/${id}/move` : `/storage/file/${id}/move`;
   const body = { destination_folder_id: moveSelectedFolder || null };
   const d = await apiCall('PATCH', endpoint, body);
   closeMoveModal();
   if (d) { toast('Movido'); folderHierarchy = null; browseFolder(currentFolderId); }
+}
+
+function closeMoveConflictModal() {
+  $('move-conflict-modal').classList.add('hidden');
+  pendingMoveConflict = null;
+}
+
+async function confirmMoveReplace() {
+  if (!pendingMoveConflict) return;
+  const { type, id, destination_folder_id } = pendingMoveConflict;
+  closeMoveConflictModal();
+
+  const endpoint = type === 'folder' ? `/storage/folder/${id}/move` : `/storage/file/${id}/move`;
+  const body = { destination_folder_id: destination_folder_id || null, overwrite: true };
+  const d = await apiCall('PATCH', endpoint, body);
+  closeMoveModal();
+  if (d) { toast('Movido y reemplazado'); folderHierarchy = null; browseFolder(currentFolderId); }
 }
 
 function closeMoveModal() { $('move-overlay').classList.add('hidden'); }
@@ -863,6 +951,10 @@ async function createFolderBrowser() {
 
 let pendingUploadFile = null;
 let pendingUploadMode = 'chunks';
+let pendingReplaceFileId = null;
+let pendingMoveConflict = null;
+let pendingRestoreConflict = null;
+let currentTrashItems = [];
 let uploadMenuOpen = false;
 
 function toggleUploadMenu() {
@@ -888,6 +980,7 @@ document.addEventListener('click', e => {
 function closeUploadModal() {
   $('upload-modal').classList.add('hidden');
   pendingUploadFile = null;
+  pendingReplaceFileId = null;
 }
 
 async function confirmUpload() {
@@ -907,6 +1000,25 @@ async function confirmUpload() {
   }
 }
 
+async function confirmReplaceUpload() {
+  if (!pendingUploadFile || !pendingReplaceFileId) return;
+  const file = pendingUploadFile;
+  const fileId = pendingReplaceFileId;
+  closeUploadModal();
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const d = await apiCall('PUT', `/storage/file/${fileId}`, fd, true);
+    if (d) {
+      toast('Archivo reemplazado');
+      loadStorageInfo();
+      browseFolder(currentFolderId);
+    }
+  } catch (e) {
+    if (e.message !== 'Cancelado') toast('Error: ' + e.message, 'error');
+  }
+}
+
 async function uploadFileBrowser() {
   const file = $('upload-file-input').files[0];
   if (!file) return toast('Seleccione un archivo', 'warning');
@@ -920,6 +1032,7 @@ async function uploadFileBrowser() {
 
   if (check.exists) {
     pendingUploadFile = file;
+    pendingReplaceFileId = check.file_id;
     $('upload-modal-body').innerHTML =
       `Ya existe un archivo llamado <span class="conflict-name">${esc(file.name)}</span> en esta ubicación.<br><br>` +
       `Se subirá como: <span class="suggested-name">${esc(check.suggested_name)}</span>`;
@@ -1050,7 +1163,7 @@ async function updateProfile() {
   const name = $('profile-name').value.trim();
   if (!name) return toast('El nombre es obligatorio', 'warning');
   const d = await apiCall('PUT', '/user', { name, last_name: $('profile-last-name').value.trim() });
-  if (d) { toast('Perfil actualizado'); updateStatus(); }
+  if (d) { toast('Perfil actualizado'); closeProfileModal(); updateStatus(); }
 }
 
 async function updatePassword() {
@@ -1060,7 +1173,7 @@ async function updatePassword() {
   if (newPassword.length < 8) return toast('La nueva contraseña debe tener al menos 8 caracteres', 'warning');
   const d = await apiCall('PATCH', '/user', { password, newPassword });
   if (d === false) return toast('Contraseña actual incorrecta', 'error');
-  if (d) { toast('Contraseña cambiada'); $('profile-pass').value = ''; $('profile-new-pass').value = ''; }
+  if (d) { toast('Contraseña cambiada'); closeProfileModal(); }
 }
 
 async function promptDeleteAccount() {
@@ -1120,6 +1233,7 @@ async function openExpansionsModal() {
 function closeExpansionsModal() { $('expansions-modal').classList.add('hidden'); }
 
 async function expansionDetail(id) {
+  closeExpansionsModal();
   const d = await apiCall('GET', `/expansions/${id}`);
   if (!d) return;
   const rows = Object.entries(d || {}).map(([k, v]) => `<div style="padding:0.2rem 0;font-size:0.72rem">${esc(k)}: ${esc(v ?? '—')}</div>`).join('');
@@ -1127,6 +1241,7 @@ async function expansionDetail(id) {
 }
 
 async function buyExpansion(id, name) {
+  closeExpansionsModal();
   const r = await Swal.fire({
     title: `Comprar "${name}"`, text: '¿Confirmás la compra de este plan?',
     icon: 'question', showCancelButton: true, confirmButtonText: 'Comprar', cancelButtonText: 'Cancelar',

@@ -354,9 +354,10 @@ input, select, textarea { font-family: inherit; }
 .modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
   box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  padding: 1.5rem;
 }
 .modal h3 { font-size: 0.85rem; margin-bottom: 0.75rem; }
-.modal .modal-body { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.5; }
+.modal .modal-body { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.5; padding: 0 0.25rem; }
 .modal .conflict-name { color: var(--danger); font-weight: 600; }
 .modal .suggested-name { color: var(--success); font-weight: 600; }
 .modal label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-top: 0.4rem; }
@@ -476,6 +477,7 @@ input, select, textarea { font-family: inherit; }
 .profile-actions { display: flex; gap: 0.35rem; margin-top: 0.6rem; }
 .profile-actions button { flex: 1; padding: 0.4rem; font-size: 0.75rem; border: none; border-radius: var(--radius); cursor: pointer; font-family: inherit; font-weight: 500; transition: opacity 0.15s; }
 .profile-actions button:hover { opacity: 0.85; }
+.btn-warning { background: var(--warning); color: #000; }
 .btn-danger { background: var(--danger); color: #fff; }
 .danger-zone h4 { color: var(--danger); }
 
@@ -532,6 +534,10 @@ input, select, textarea { font-family: inherit; }
   padding: 0.4rem 0.5rem; border-radius: var(--radius); font-size: 0.8rem; cursor: pointer;
 }
 .verify-size-row select:focus { border-color: var(--border-hover); outline: none; }
+
+/* Ensure SweetAlert appears above custom modals */
+.swal2-container { z-index: 10000 !important; }
+.swal2-popup { z-index: 10001 !important; }
 
 .swal-action-btn {
   display: block; width: 100%; margin-top: 0.5rem; padding: 0.45rem; font-size: 0.75rem;

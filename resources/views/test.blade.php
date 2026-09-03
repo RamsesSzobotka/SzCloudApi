@@ -384,7 +384,32 @@
     <div class="modal-body" id="upload-modal-body"></div>
     <div class="modal-actions-row">
       <button class="btn-secondary" onclick="closeUploadModal()">Cancelar</button>
+      <button class="btn-warning" id="upload-modal-replace" onclick="confirmReplaceUpload()">Reemplazar</button>
       <button class="btn-primary" id="upload-modal-confirm" onclick="confirmUpload()">Subir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move Conflict Modal -->
+<div id="move-conflict-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Conflicto al mover</h3>
+    <div class="modal-body" id="move-conflict-modal-body"></div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeMoveConflictModal()">Cancelar</button>
+      <button class="btn-warning" onclick="confirmMoveReplace()">Reemplazar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restore Conflict Modal -->
+<div id="restore-conflict-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Conflicto al restaurar</h3>
+    <div class="modal-body" id="restore-conflict-modal-body"></div>
+    <div class="modal-actions-row">
+      <button class="btn-secondary" onclick="closeRestoreConflictModal()">Cancelar</button>
+      <button class="btn-warning" onclick="confirmRestoreReplace()">Reemplazar</button>
     </div>
   </div>
 </div>
