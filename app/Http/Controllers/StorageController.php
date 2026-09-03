@@ -500,7 +500,7 @@ class StorageController extends Controller
                 mediaType: "application/json",
                 schema: new OA\Schema(
                     properties: [
-                        new OA\Property(property: "overwrite", type: "boolean", description: "Si existe un archivo con el mismo nombre, reemplazarlo en lugar de renombrar con (n)", default: false),
+                        new OA\Property(property: "overwrite", type: "boolean", description: "Control de conflicto de nombres. Si es true y existe un archivo con el mismo nombre en la carpeta destino, lo reemplaza (preservando historial de versiones). Si es false o no se envía, renombra automáticamente el archivo restaurado con sufijo (n).", default: false),
                     ]
                 )
             )
@@ -539,7 +539,7 @@ class StorageController extends Controller
                 required: ["destination_folder_id"],
                 properties: [
                     new OA\Property(property: "destination_folder_id", type: "string", format: "uuid", nullable: true, description: "ID de la carpeta destino. Null para raíz."),
-                    new OA\Property(property: "overwrite", type: "boolean", description: "Si existe un archivo con el mismo nombre en el destino, reemplazarlo", default: false),
+                    new OA\Property(property: "overwrite", type: "boolean", description: "Control de conflicto de nombres. Si es true y existe un archivo con el mismo nombre en la carpeta destino, lo reemplaza (preservando historial de versiones). Si es false o no se envía, renombra automáticamente el archivo con sufijo (n).", default: false),
                 ]
             )
         ),
